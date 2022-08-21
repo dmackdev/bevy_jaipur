@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use enum_map::{enum_map, Enum, EnumMap};
+use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::iter;
@@ -135,6 +136,12 @@ impl Default for Deck {
     }
 }
 
+impl Deck {
+    fn get_cards(&mut self, num_cards: usize) -> Vec<Card> {
+        self.cards.drain(0..num_cards).collect()
+    }
+}
+
 struct Market {
     cards: Vec<Card>,
 }
@@ -241,20 +248,40 @@ struct CamelsHandOwner(usize);
 #[derive(Component)]
 struct TokensOwner(Tokens);
 
-fn add_players(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(Player)
-        .insert(Name("Player 1".to_string()))
-        .insert(GoodsHandOwner(vec![]))
-        .insert(CamelsHandOwner(0))
-        .insert(TokensOwner(Tokens::empty()));
+#[derive(Bundle)]
+struct PlayerBundle {
+    player: Player,
+    name: Name,
+    goods_hand_owner: GoodsHandOwner,
+    camels_hand_owner: CamelsHandOwner,
+    tokens_owner: TokensOwner,
+}
 
-    commands
-        .spawn()
-        .insert(Player)
-        .insert(Name("Player 2".to_string()))
-        .insert(GoodsHandOwner(vec![]))
-        .insert(CamelsHandOwner(0))
-        .insert(TokensOwner(Tokens::empty()));
+impl PlayerBundle {
+    fn create_player(name: String, initial_cards: Vec<Card>) -> Self {
+        let (camels, goods): (Vec<CardType>, Vec<GoodType>) =
+            initial_cards.into_iter().partition_map(|c| match c.0 {
+                CardType::Camel => Either::Left(CardType::Camel),
+                CardType::Good(good_type) => Either::Right(good_type),
+            });
+
+        Self {
+            player: Player {},
+            name: Name(name),
+            goods_hand_owner: GoodsHandOwner(goods),
+            camels_hand_owner: CamelsHandOwner(camels.len()),
+            tokens_owner: TokensOwner(Tokens::empty()),
+        }
+    }
+}
+
+fn add_players(mut commands: Commands, mut deck: ResMut<Deck>) {
+    commands.spawn_bundle(PlayerBundle::create_player(
+        "Player 1".to_string(),
+        deck.get_cards(5),
+    ));
+    commands.spawn_bundle(PlayerBundle::create_player(
+        "Player 2".to_string(),
+        deck.get_cards(5),
+    ));
 }
