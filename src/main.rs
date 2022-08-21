@@ -73,7 +73,7 @@ enum GoodType {
     Leather,
 }
 
-#[derive(Component, Clone, Debug)]
+#[derive(Clone, Debug)]
 struct Card(CardType);
 
 struct Deck {
