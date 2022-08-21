@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use enum_map::{enum_map, Enum, EnumMap};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::iter;
@@ -7,8 +8,10 @@ fn main() {
     App::new()
         .init_resource::<Deck>()
         .init_resource::<Market>()
+        .init_resource::<Tokens>()
         .add_startup_system(debug_market)
         .add_startup_system(debug_deck.after(debug_market))
+        .add_startup_system(debug_tokens.after(debug_deck))
         .run();
 }
 
@@ -26,13 +29,27 @@ fn debug_market(market: Res<Market>) {
     }
 }
 
+fn debug_tokens(tokens: Res<Tokens>) {
+    println!("Tokens:");
+
+    println!("Goods:");
+    for (good, tks) in &tokens.goods {
+        println!("{:?} => {:?}", good, tks);
+    }
+
+    println!("Bonus:");
+    for (bonus, tks) in &tokens.bonus {
+        println!("{:?} => {:?}", bonus, tks);
+    }
+}
+
 #[derive(Clone, Debug)]
 enum CardType {
     Camel,
     Good(GoodType),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Enum)]
 enum GoodType {
     Diamond,
     Gold,
@@ -134,5 +151,49 @@ impl FromWorld for Market {
         Self {
             cards: market_cards,
         }
+    }
+}
+
+struct Tokens {
+    goods: EnumMap<GoodType, Vec<usize>>,
+    bonus: EnumMap<BonusType, Vec<usize>>,
+}
+
+#[derive(Clone, Debug, Enum)]
+enum BonusType {
+    Three,
+    Four,
+    Five,
+}
+
+impl Default for Tokens {
+    fn default() -> Self {
+        let goods = enum_map! {
+          GoodType::Diamond => vec![7,7,5,5,5],
+          GoodType::Gold => vec![6,6,5,5,5],
+          GoodType::Silver => vec![5,5,5,5,5],
+          GoodType::Cloth => vec![5,3,3,2,2,1,1],
+          GoodType::Spice => vec![5,3,3,2,2,1,1],
+          GoodType::Leather => vec![4,3,2,1,1,1,1,1,1],
+        };
+
+        let mut rng = thread_rng();
+
+        let mut three_bonuses = vec![3, 3, 2, 2, 2, 1, 1];
+        three_bonuses.shuffle(&mut rng);
+
+        let mut four_bonuses = vec![6, 6, 5, 5, 4, 4];
+        four_bonuses.shuffle(&mut rng);
+
+        let mut five_bonuses = vec![10, 10, 9, 8, 8];
+        five_bonuses.shuffle(&mut rng);
+
+        let bonus = enum_map! {
+          BonusType::Three => three_bonuses.clone(),
+          BonusType::Four => four_bonuses.clone(),
+          BonusType::Five => five_bonuses.clone(),
+        };
+
+        Self { goods, bonus }
     }
 }
