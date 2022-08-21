@@ -12,6 +12,8 @@ fn main() {
         .add_startup_system(debug_market)
         .add_startup_system(debug_deck.after(debug_market))
         .add_startup_system(debug_tokens.after(debug_deck))
+        .add_startup_system(add_players)
+        .add_system(debug_players)
         .run();
 }
 
@@ -40,6 +42,18 @@ fn debug_tokens(tokens: Res<Tokens>) {
     println!("Bonus:");
     for (bonus, tks) in &tokens.bonus {
         println!("{:?} => {:?}", bonus, tks);
+    }
+}
+
+fn debug_players(
+    query: Query<(&Name, &GoodsHandOwner, &CamelsHandOwner, &TokensOwner), With<Player>>,
+) {
+    println!("Players:");
+    for (name, goods_hand, camels_hand, tokens) in query.iter() {
+        println!("Name: {:?}", name.0);
+        println!("Goods hand: {:?}", goods_hand.0);
+        println!("Camels: {:?}", camels_hand.0);
+        println!("Tokens: {:?}\n", tokens.0);
     }
 }
 
@@ -154,6 +168,7 @@ impl FromWorld for Market {
     }
 }
 
+#[derive(Debug)]
 struct Tokens {
     goods: EnumMap<GoodType, Vec<usize>>,
     bonus: EnumMap<BonusType, Vec<usize>>,
@@ -196,4 +211,50 @@ impl Default for Tokens {
 
         Self { goods, bonus }
     }
+}
+
+impl Tokens {
+    fn empty() -> Self {
+        Self {
+            goods: enum_map! {
+              _ => vec![]
+            },
+            bonus: enum_map! {
+              _ => vec![]
+            },
+        }
+    }
+}
+
+#[derive(Component)]
+struct Player;
+
+#[derive(Component)]
+struct Name(String);
+
+#[derive(Component)]
+struct GoodsHandOwner(Vec<GoodType>);
+
+#[derive(Component)]
+struct CamelsHandOwner(usize);
+
+#[derive(Component)]
+struct TokensOwner(Tokens);
+
+fn add_players(mut commands: Commands) {
+    commands
+        .spawn()
+        .insert(Player)
+        .insert(Name("Player 1".to_string()))
+        .insert(GoodsHandOwner(vec![]))
+        .insert(CamelsHandOwner(0))
+        .insert(TokensOwner(Tokens::empty()));
+
+    commands
+        .spawn()
+        .insert(Player)
+        .insert(Name("Player 2".to_string()))
+        .insert(GoodsHandOwner(vec![]))
+        .insert(CamelsHandOwner(0))
+        .insert(TokensOwner(Tokens::empty()));
 }
