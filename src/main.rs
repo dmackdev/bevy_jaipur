@@ -29,6 +29,11 @@ fn debug_market(market: Res<Market>) {
 #[derive(Clone, Debug)]
 enum CardType {
     Camel,
+    Good(GoodType),
+}
+
+#[derive(Clone, Debug)]
+enum GoodType {
     Diamond,
     Gold,
     Silver,
@@ -60,27 +65,27 @@ impl FromWorld for Deck {
             .take(NUM_CAMEL_CARDS)
             .collect::<Vec<_>>();
 
-        let mut diamond_cards = iter::repeat(Card(CardType::Diamond))
+        let mut diamond_cards = iter::repeat(Card(CardType::Good(GoodType::Diamond)))
             .take(NUM_DIAMOND_CARDS)
             .collect::<Vec<_>>();
 
-        let mut gold_cards = iter::repeat(Card(CardType::Gold))
+        let mut gold_cards = iter::repeat(Card(CardType::Good(GoodType::Gold)))
             .take(NUM_GOLD_CARDS)
             .collect::<Vec<_>>();
 
-        let mut silver_cards = iter::repeat(Card(CardType::Silver))
+        let mut silver_cards = iter::repeat(Card(CardType::Good(GoodType::Silver)))
             .take(NUM_SILVER_CARDS)
             .collect::<Vec<_>>();
 
-        let mut cloth_cards = iter::repeat(Card(CardType::Cloth))
+        let mut cloth_cards = iter::repeat(Card(CardType::Good(GoodType::Cloth)))
             .take(NUM_CLOTH_CARDS)
             .collect::<Vec<_>>();
 
-        let mut spice_cards = iter::repeat(Card(CardType::Spice))
+        let mut spice_cards = iter::repeat(Card(CardType::Good(GoodType::Spice)))
             .take(NUM_SPICE_CARDS)
             .collect::<Vec<_>>();
 
-        let mut leather_cards = iter::repeat(Card(CardType::Leather))
+        let mut leather_cards = iter::repeat(Card(CardType::Good(GoodType::Leather)))
             .take(NUM_LEATHER_CARDS)
             .collect::<Vec<_>>();
 
