@@ -74,8 +74,8 @@ const NUM_CLOTH_CARDS: usize = 8;
 const NUM_SPICE_CARDS: usize = 8;
 const NUM_LEATHER_CARDS: usize = 10;
 
-impl FromWorld for Deck {
-    fn from_world(_world: &mut World) -> Self {
+impl Default for Deck {
+    fn default() -> Self {
         let mut cards = vec![];
 
         let mut camel_cards = iter::repeat(Card(CardType::Camel))
