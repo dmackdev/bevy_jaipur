@@ -313,6 +313,11 @@ fn handle_turn_transition_screen_interaction(
 const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
 const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
 const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
+const INACTIVE_PLAYER_GOODS_HAND_START_POS: Vec3 = Vec3::new(
+    GOODS_HAND_START_POS.x,
+    GOODS_HAND_START_POS.y * -1.0,
+    GOODS_HAND_START_POS.z,
+);
 const CARD_PADDING: f32 = 20.0;
 
 fn setup_game(mut commands: Commands) {
@@ -355,6 +360,7 @@ fn setup_game_screen(
     deck: Res<Deck>,
     market: Res<Market>,
     active_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), With<ActivePlayer>>,
+    inactive_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), Without<ActivePlayer>>,
 ) {
     // Render deck
     for i in 0..deck.cards.len() {
@@ -404,6 +410,34 @@ fn setup_game_screen(
             transform: Transform {
                 translation: GOODS_HAND_START_POS
                     + Vec3::Y * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (90.0_f32).to_radians()),
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    let (inactive_player_goods_hand, inactive_player_camels_hand) = inactive_player_query.single();
+
+    for idx in 0..inactive_player_goods_hand.0.len() {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load("textures/card/back.png"),
+            transform: Transform {
+                translation: INACTIVE_PLAYER_GOODS_HAND_START_POS
+                    + Vec3::new(idx as f32 * (CARD_DIMENSION.x + CARD_PADDING), 0.0, 0.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (180.0_f32).to_radians()),
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    if inactive_player_camels_hand.0 > 0 {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load("textures/card/camel.png"),
+            transform: Transform {
+                translation: INACTIVE_PLAYER_GOODS_HAND_START_POS
+                    - Vec3::Y * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
                 rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (90.0_f32).to_radians()),
                 ..default()
             },
