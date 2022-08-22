@@ -7,13 +7,22 @@ use std::iter;
 
 use crate::app_state::AppState;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CardType {
     Camel,
     Good(GoodType),
 }
 
-#[derive(Clone, Debug, Enum, PartialEq)]
+impl CardType {
+    fn get_card_texture(&self) -> String {
+        match self {
+            CardType::Camel => "textures/card/camel.png".to_string(),
+            CardType::Good(good) => good.get_card_texture(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Enum, Eq, PartialEq)]
 pub enum GoodType {
     Diamond,
     Gold,
@@ -23,7 +32,20 @@ pub enum GoodType {
     Leather,
 }
 
-#[derive(Clone, Debug)]
+impl GoodType {
+    fn get_card_texture(&self) -> String {
+        match self {
+            GoodType::Diamond => "textures/card/diamond.png".to_string(),
+            GoodType::Gold => "textures/card/gold.png".to_string(),
+            GoodType::Silver => "textures/card/silver.png".to_string(),
+            GoodType::Cloth => "textures/card/cloth.png".to_string(),
+            GoodType::Spice => "textures/card/spice.png".to_string(),
+            GoodType::Leather => "textures/card/leather.png".to_string(),
+        }
+    }
+}
+
+#[derive(Component, Clone, Debug)]
 pub struct Card(pub CardType);
 
 #[derive(Clone)]
@@ -189,17 +211,88 @@ impl Plugin for GamePlugin {
     }
 }
 
-fn setup_game(mut commands: Commands) {
+const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
+const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
+const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
+const CARD_PADDING: f32 = 20.0;
+
+fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut deck = Deck::default();
     let market = Market::new(&mut deck);
     let tokens = Tokens::create_game_tokens();
 
-    commands.spawn_bundle(PlayerBundle::new("Player 1".to_string(), deck.get_cards(5)));
-    commands.spawn_bundle(PlayerBundle::new("Player 2".to_string(), deck.get_cards(5)));
+    let player_one_cards = deck.get_cards(5);
+    let player_two_cards = deck.get_cards(5);
+
+    let (player_one_num_camels, player_one_goods_hand) = partition_hand(player_one_cards);
+    let (player_two_num_camels, player_two_goods_hand) = partition_hand(player_two_cards);
+
+    commands.spawn_bundle(PlayerBundle::new(
+        "Player 1".to_string(),
+        player_one_goods_hand.clone(),
+        player_one_num_camels,
+    ));
+    commands.spawn_bundle(PlayerBundle::new(
+        "Player 2".to_string(),
+        player_two_goods_hand,
+        player_two_num_camels,
+    ));
 
     debug_deck(deck.clone());
     debug_market(market.clone());
     debug_tokens(tokens.clone());
+
+    // Render deck
+    for i in 0..deck.cards.len() {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load("textures/card/back.png"),
+            transform: Transform {
+                translation: DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32),
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    // Render market
+    for (idx, market_card) in market.cards.iter().enumerate() {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load(&market_card.get_card_texture()),
+            transform: Transform {
+                translation: DECK_START_POS
+                    - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
+                    - (5 - idx) as f32 * CARD_PADDING * Vec3::X,
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    // Render player one goods hand
+    for (idx, good) in player_one_goods_hand.iter().enumerate() {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load(&good.get_card_texture()),
+            transform: Transform {
+                translation: GOODS_HAND_START_POS
+                    + Vec3::new(idx as f32 * (CARD_DIMENSION.x + CARD_PADDING), 0.0, 0.0),
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    if player_one_num_camels > 0 {
+        commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load("textures/card/camel.png"),
+            transform: Transform {
+                translation: GOODS_HAND_START_POS
+                    + Vec3::Y * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (90.0_f32).to_radians()),
+                ..default()
+            },
+            ..default()
+        });
+    }
 
     commands.insert_resource(deck);
     commands.insert_resource(market);
@@ -271,19 +364,23 @@ struct PlayerBundle {
 }
 
 impl PlayerBundle {
-    fn new(name: String, initial_cards: Vec<CardType>) -> Self {
-        let (camels, goods): (Vec<CardType>, Vec<GoodType>) =
-            initial_cards.into_iter().partition_map(|c| match c {
-                CardType::Camel => Either::Left(CardType::Camel),
-                CardType::Good(good_type) => Either::Right(good_type),
-            });
-
+    fn new(name: String, initial_goods_hand: Vec<GoodType>, initial_camels: usize) -> Self {
         Self {
             player: Player {},
             name: PlayerName(name),
-            goods_hand_owner: GoodsHandOwner(goods),
-            camels_hand_owner: CamelsHandOwner(camels.len()),
+            goods_hand_owner: GoodsHandOwner(initial_goods_hand),
+            camels_hand_owner: CamelsHandOwner(initial_camels),
             tokens_owner: TokensOwner(Tokens::create_empty()),
         }
     }
+}
+
+fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
+    let (camels, goods): (Vec<CardType>, Vec<GoodType>) =
+        hand.into_iter().partition_map(|c| match c {
+            CardType::Camel => Either::Left(CardType::Camel),
+            CardType::Good(good_type) => Either::Right(good_type),
+        });
+
+    (camels.len(), goods)
 }
