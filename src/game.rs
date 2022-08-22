@@ -202,12 +202,111 @@ impl Tokens {
     }
 }
 
-pub struct GamePlugin;
+fn handle_when_resources_ready(
+    mut state: ResMut<State<AppState>>,
+    deck: Option<Res<Deck>>,
+    market: Option<Res<Market>>,
+    tokens: Option<Res<Tokens>>,
+) {
+    let resources_are_ready = deck.is_some() && market.is_some() && tokens.is_some();
 
-impl Plugin for GamePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game));
-        app.add_system_set(SystemSet::on_update(AppState::InGame).with_system(debug_players));
+    if resources_are_ready {
+        state.set(AppState::TurnTransition).unwrap();
+    }
+}
+
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+
+#[derive(Component)]
+struct TurnTransitionScreen;
+
+fn setup_turn_transition_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    query: Query<&PlayerName, With<ActivePlayer>>,
+) {
+    let current_player_name = &query.single().0;
+
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            color: Color::CRIMSON.into(),
+            ..default()
+        })
+        .insert(TurnTransitionScreen)
+        .with_children(|parent| {
+            parent.spawn_bundle(
+                TextBundle::from_section(
+                    format!("{}: your turn", current_player_name),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.0)),
+                    ..default()
+                }),
+            );
+        })
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(ButtonBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+                        // center button
+                        margin: UiRect::all(Val::Px(10.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: NORMAL_BUTTON.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn_bundle(TextBundle::from_section(
+                        "Start turn",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                        },
+                    ));
+                });
+        });
+}
+
+fn handle_turn_transition_screen_interaction(
+    mut state: ResMut<State<AppState>>,
+    mut interaction_query: Query<
+        (&Interaction, &mut UiColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Clicked => {
+                *color = PRESSED_BUTTON.into();
+                state.set(AppState::InGame).unwrap();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+            }
+        }
     }
 }
 
@@ -216,7 +315,7 @@ const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
 const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
 const CARD_PADDING: f32 = 20.0;
 
-fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_game(mut commands: Commands) {
     let mut deck = Deck::default();
     let market = Market::new(&mut deck);
     let tokens = Tokens::create_game_tokens();
@@ -227,11 +326,14 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (player_one_num_camels, player_one_goods_hand) = partition_hand(player_one_cards);
     let (player_two_num_camels, player_two_goods_hand) = partition_hand(player_two_cards);
 
-    commands.spawn_bundle(PlayerBundle::new(
-        "Player 1".to_string(),
-        player_one_goods_hand.clone(),
-        player_one_num_camels,
-    ));
+    commands
+        .spawn_bundle(PlayerBundle::new(
+            "Player 1".to_string(),
+            player_one_goods_hand,
+            player_one_num_camels,
+        ))
+        .insert(ActivePlayer);
+
     commands.spawn_bundle(PlayerBundle::new(
         "Player 2".to_string(),
         player_two_goods_hand,
@@ -242,6 +344,18 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     debug_market(market.clone());
     debug_tokens(tokens.clone());
 
+    commands.insert_resource(deck);
+    commands.insert_resource(market);
+    commands.insert_resource(tokens);
+}
+
+fn setup_game_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    deck: Res<Deck>,
+    market: Res<Market>,
+    active_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), With<ActivePlayer>>,
+) {
     // Render deck
     for i in 0..deck.cards.len() {
         commands.spawn_bundle(SpriteBundle {
@@ -268,8 +382,10 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
     }
 
-    // Render player one goods hand
-    for (idx, good) in player_one_goods_hand.iter().enumerate() {
+    let (active_player_goods_hand, active_player_camels_hand) = active_player_query.single();
+
+    // Render active player's goods hand
+    for (idx, good) in active_player_goods_hand.0.iter().enumerate() {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load(&good.get_card_texture()),
             transform: Transform {
@@ -281,7 +397,8 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
     }
 
-    if player_one_num_camels > 0 {
+    // Render single camel card if active player has at least one - a player need not reveal how many camel cards they have
+    if active_player_camels_hand.0 > 0 {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("textures/card/camel.png"),
             transform: Transform {
@@ -293,10 +410,6 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         });
     }
-
-    commands.insert_resource(deck);
-    commands.insert_resource(market);
-    commands.insert_resource(tokens);
 }
 
 fn debug_deck(deck: Deck) {
@@ -375,6 +488,9 @@ impl PlayerBundle {
     }
 }
 
+#[derive(Component)]
+struct ActivePlayer;
+
 fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     let (camels, goods): (Vec<CardType>, Vec<GoodType>) =
         hand.into_iter().partition_map(|c| match c {
@@ -383,4 +499,35 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
         });
 
     (camels.len(), goods)
+}
+
+// Generic system that takes a component as a parameter, and will despawn all entities with that component
+fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+    for entity in &to_despawn {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+pub struct GamePlugin;
+
+impl Plugin for GamePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
+            .add_system_set(
+                SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),
+            )
+            .add_system_set(
+                SystemSet::on_enter(AppState::TurnTransition)
+                    .with_system(setup_turn_transition_screen),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::TurnTransition)
+                    .with_system(handle_turn_transition_screen_interaction),
+            )
+            .add_system_set(
+                SystemSet::on_exit(AppState::TurnTransition)
+                    .with_system(despawn_screen::<TurnTransitionScreen>),
+            )
+            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen));
+    }
 }

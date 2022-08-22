@@ -51,7 +51,7 @@ fn handle_menu_interaction(
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON.into();
-                state.set(AppState::InGame).unwrap();
+                state.set(AppState::InitGame).unwrap();
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
