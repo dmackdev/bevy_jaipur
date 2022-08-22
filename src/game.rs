@@ -366,10 +366,8 @@ fn setup_game_screen(
     for i in 0..deck.cards.len() {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("textures/card/back.png"),
-            transform: Transform {
-                translation: DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32),
-                ..default()
-            },
+            transform: Transform::default()
+                .with_translation(DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32)),
             ..default()
         });
     }
@@ -378,12 +376,11 @@ fn setup_game_screen(
     for (idx, market_card) in market.cards.iter().enumerate() {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load(&market_card.get_card_texture()),
-            transform: Transform {
-                translation: DECK_START_POS
+            transform: Transform::default().with_translation(
+                DECK_START_POS
                     - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
                     - (5 - idx) as f32 * CARD_PADDING * Vec3::X,
-                ..default()
-            },
+            ),
             ..default()
         });
     }
@@ -394,11 +391,9 @@ fn setup_game_screen(
     for (idx, good) in active_player_goods_hand.0.iter().enumerate() {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load(&good.get_card_texture()),
-            transform: Transform {
-                translation: GOODS_HAND_START_POS
-                    + Vec3::new(idx as f32 * (CARD_DIMENSION.x + CARD_PADDING), 0.0, 0.0),
-                ..default()
-            },
+            transform: Transform::default().with_translation(
+                GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
+            ),
             ..default()
         });
     }
@@ -407,12 +402,13 @@ fn setup_game_screen(
     if active_player_camels_hand.0 > 0 {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("textures/card/camel.png"),
-            transform: Transform {
-                translation: GOODS_HAND_START_POS
-                    + Vec3::Y * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (90.0_f32).to_radians()),
-                ..default()
-            },
+            transform: Transform::default()
+                .with_translation(
+                    GOODS_HAND_START_POS
+                        + Vec3::Y
+                            * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                )
+                .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
             ..default()
         });
     }
@@ -422,12 +418,12 @@ fn setup_game_screen(
     for idx in 0..inactive_player_goods_hand.0.len() {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("textures/card/back.png"),
-            transform: Transform {
-                translation: INACTIVE_PLAYER_GOODS_HAND_START_POS
-                    + Vec3::new(idx as f32 * (CARD_DIMENSION.x + CARD_PADDING), 0.0, 0.0),
-                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (180.0_f32).to_radians()),
-                ..default()
-            },
+            transform: Transform::default()
+                .with_translation(
+                    INACTIVE_PLAYER_GOODS_HAND_START_POS
+                        + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
+                )
+                .with_rotation(Quat::from_rotation_z((180.0_f32).to_radians())),
             ..default()
         });
     }
@@ -435,12 +431,14 @@ fn setup_game_screen(
     if inactive_player_camels_hand.0 > 0 {
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("textures/card/camel.png"),
-            transform: Transform {
-                translation: INACTIVE_PLAYER_GOODS_HAND_START_POS
-                    - Vec3::Y * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                rotation: Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, (90.0_f32).to_radians()),
-                ..default()
-            },
+            transform: Transform::default()
+                .with_translation(
+                    INACTIVE_PLAYER_GOODS_HAND_START_POS
+                        - Vec3::Y
+                            * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                )
+                .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
+
             ..default()
         });
     }
