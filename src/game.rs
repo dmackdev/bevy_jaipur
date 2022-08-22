@@ -7,13 +7,13 @@ use std::iter;
 
 use crate::app_state::AppState;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CardType {
     Camel,
     Good(GoodType),
 }
 
-#[derive(Clone, Debug, Enum)]
+#[derive(Clone, Debug, Enum, PartialEq)]
 pub enum GoodType {
     Diamond,
     Gold,
@@ -28,7 +28,7 @@ pub struct Card(pub CardType);
 
 #[derive(Clone)]
 pub struct Deck {
-    pub cards: Vec<Card>,
+    pub cards: Vec<CardType>,
 }
 
 const NUM_CAMEL_CARDS: usize = 11;
@@ -43,31 +43,31 @@ impl Default for Deck {
     fn default() -> Self {
         let mut cards = vec![];
 
-        let mut camel_cards = iter::repeat(Card(CardType::Camel))
+        let mut camel_cards = iter::repeat(CardType::Camel)
             .take(NUM_CAMEL_CARDS)
             .collect::<Vec<_>>();
 
-        let mut diamond_cards = iter::repeat(Card(CardType::Good(GoodType::Diamond)))
+        let mut diamond_cards = iter::repeat(CardType::Good(GoodType::Diamond))
             .take(NUM_DIAMOND_CARDS)
             .collect::<Vec<_>>();
 
-        let mut gold_cards = iter::repeat(Card(CardType::Good(GoodType::Gold)))
+        let mut gold_cards = iter::repeat(CardType::Good(GoodType::Gold))
             .take(NUM_GOLD_CARDS)
             .collect::<Vec<_>>();
 
-        let mut silver_cards = iter::repeat(Card(CardType::Good(GoodType::Silver)))
+        let mut silver_cards = iter::repeat(CardType::Good(GoodType::Silver))
             .take(NUM_SILVER_CARDS)
             .collect::<Vec<_>>();
 
-        let mut cloth_cards = iter::repeat(Card(CardType::Good(GoodType::Cloth)))
+        let mut cloth_cards = iter::repeat(CardType::Good(GoodType::Cloth))
             .take(NUM_CLOTH_CARDS)
             .collect::<Vec<_>>();
 
-        let mut spice_cards = iter::repeat(Card(CardType::Good(GoodType::Spice)))
+        let mut spice_cards = iter::repeat(CardType::Good(GoodType::Spice))
             .take(NUM_SPICE_CARDS)
             .collect::<Vec<_>>();
 
-        let mut leather_cards = iter::repeat(Card(CardType::Good(GoodType::Leather)))
+        let mut leather_cards = iter::repeat(CardType::Good(GoodType::Leather))
             .take(NUM_LEATHER_CARDS)
             .collect::<Vec<_>>();
 
@@ -87,14 +87,14 @@ impl Default for Deck {
 }
 
 impl Deck {
-    pub fn get_cards(&mut self, num_cards: usize) -> Vec<Card> {
+    pub fn get_cards(&mut self, num_cards: usize) -> Vec<CardType> {
         self.cards.drain(0..num_cards).collect()
     }
 }
 
 #[derive(Clone)]
 pub struct Market {
-    pub cards: Vec<Card>,
+    pub cards: Vec<CardType>,
 }
 
 impl Market {
@@ -106,7 +106,7 @@ impl Market {
             let camel_card_idx = deck
                 .cards
                 .iter()
-                .position(|c| matches!(c.0, CardType::Camel))
+                .position(|c| *c == CardType::Camel)
                 .unwrap();
 
             let camel_card = deck.cards.remove(camel_card_idx);
@@ -271,9 +271,9 @@ struct PlayerBundle {
 }
 
 impl PlayerBundle {
-    fn new(name: String, initial_cards: Vec<Card>) -> Self {
+    fn new(name: String, initial_cards: Vec<CardType>) -> Self {
         let (camels, goods): (Vec<CardType>, Vec<GoodType>) =
-            initial_cards.into_iter().partition_map(|c| match c.0 {
+            initial_cards.into_iter().partition_map(|c| match c {
                 CardType::Camel => Either::Left(CardType::Camel),
                 CardType::Good(good_type) => Either::Right(good_type),
             });
