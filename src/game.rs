@@ -6,6 +6,7 @@ use rand::thread_rng;
 use std::iter;
 
 use crate::app_state::AppState;
+use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -534,13 +535,6 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     (camels.len(), goods)
 }
 
-// Generic system that takes a component as a parameter, and will despawn all entities with that component
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in &to_despawn {
-        commands.entity(entity).despawn_recursive();
-    }
-}
-
 fn handle_confirm_turn_event(
     mut commands: Commands,
     mut state: ResMut<State<AppState>>,
@@ -580,14 +574,15 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::TurnTransition)
-                    .with_system(despawn_screen::<TurnTransitionScreen>),
+                    .with_system(despawn_entity_with_component::<TurnTransitionScreen>),
             )
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame).with_system(handle_confirm_turn_event),
             )
             .add_system_set(
-                SystemSet::on_exit(AppState::InGame).with_system(despawn_screen::<Sprite>),
+                SystemSet::on_exit(AppState::InGame)
+                    .with_system(despawn_entity_with_component::<Sprite>),
             );
     }
 }

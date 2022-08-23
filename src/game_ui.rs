@@ -2,7 +2,9 @@ use std::fmt;
 
 use bevy::prelude::*;
 
-use crate::{app_state::AppState, event::ConfirmTurnEvent};
+use crate::{
+    app_state::AppState, common_systems::despawn_entity_with_component, event::ConfirmTurnEvent,
+};
 
 #[derive(Debug, Copy, Clone)]
 enum GameButtonKind {
@@ -154,12 +156,6 @@ fn handle_confirm_button_interaction(
     }
 }
 
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in &to_despawn {
-        commands.entity(entity).despawn_recursive();
-    }
-}
-
 pub struct GameUiPlugin;
 
 impl Plugin for GameUiPlugin {
@@ -170,7 +166,8 @@ impl Plugin for GameUiPlugin {
                     .with_system(handle_confirm_button_interaction),
             )
             .add_system_set(
-                SystemSet::on_exit(AppState::InGame).with_system(despawn_screen::<Node>),
+                SystemSet::on_exit(AppState::InGame)
+                    .with_system(despawn_entity_with_component::<Node>),
             );
     }
 }
