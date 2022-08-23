@@ -6,6 +6,7 @@ use rand::thread_rng;
 use std::iter;
 
 use crate::app_state::AppState;
+use crate::event::ConfirmTurnEvent;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CardType {
@@ -540,6 +541,27 @@ fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands
     }
 }
 
+fn handle_confirm_turn_event(
+    mut commands: Commands,
+    mut state: ResMut<State<AppState>>,
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    active_player_query: Query<Entity, With<ActivePlayer>>,
+    inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
+) {
+    for _ev in ev_confirm_turn.iter() {
+        let active_player_entity = active_player_query.single();
+        let inactive_player_entity = inactive_player_query.single();
+
+        commands
+            .entity(active_player_entity)
+            .remove::<ActivePlayer>();
+
+        commands.entity(inactive_player_entity).insert(ActivePlayer);
+
+        state.set(AppState::TurnTransition).unwrap();
+    }
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -560,6 +582,12 @@ impl Plugin for GamePlugin {
                 SystemSet::on_exit(AppState::TurnTransition)
                     .with_system(despawn_screen::<TurnTransitionScreen>),
             )
-            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen));
+            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame).with_system(handle_confirm_turn_event),
+            )
+            .add_system_set(
+                SystemSet::on_exit(AppState::InGame).with_system(despawn_screen::<Sprite>),
+            );
     }
 }
