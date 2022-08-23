@@ -3,7 +3,9 @@ use std::fmt;
 use bevy::prelude::*;
 
 use crate::{
-    common_systems::despawn_entity_with_component, event::ConfirmTurnEvent, states::AppState,
+    common_systems::despawn_entity_with_component,
+    event::ConfirmTurnEvent,
+    states::{AppState, TurnState},
 };
 
 #[derive(Debug, Copy, Clone)]
@@ -133,7 +135,42 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| create_button(parent, CONFIRM_BUTTON, &asset_server));
 }
 
+fn handle_turn_state_button<B: GameButton + Component>(
+    mut turn_state: ResMut<State<TurnState>>,
+    mut interaction_query: Query<(&Interaction, &mut UiColor, &B), Changed<Interaction>>,
+) {
+    if *turn_state.current() != TurnState::None {
+        return;
+    }
+
+    for (interaction, mut color, game_button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Clicked => {
+                *color = game_button.get_data().pressed_color.into();
+                turn_state.set(game_button.get_data().kind.into()).unwrap();
+            }
+            Interaction::Hovered => {
+                *color = game_button.get_data().hovered_color.into();
+            }
+            Interaction::None => {
+                *color = game_button.get_data().normal_color.into();
+            }
+        }
+    }
+}
+
+impl From<GameButtonKind> for TurnState {
+    fn from(kind: GameButtonKind) -> Self {
+        match kind {
+            GameButtonKind::Take => TurnState::Take,
+            GameButtonKind::Sell => TurnState::Sell,
+            GameButtonKind::Confirm => TurnState::None,
+        }
+    }
+}
+
 fn handle_confirm_button_interaction(
+    mut turn_state: ResMut<State<TurnState>>,
     mut ev_confirm_turn: EventWriter<ConfirmTurnEvent>,
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, &ConfirmGameButton),
@@ -144,6 +181,12 @@ fn handle_confirm_button_interaction(
         match *interaction {
             Interaction::Clicked => {
                 *color = game_button.0.pressed_color.into();
+
+                let desired_turn_state: TurnState = game_button.get_data().kind.into();
+                if *turn_state.current() != desired_turn_state {
+                    turn_state.set(desired_turn_state).unwrap();
+                }
+
                 ev_confirm_turn.send(ConfirmTurnEvent);
             }
             Interaction::Hovered => {
@@ -163,6 +206,8 @@ impl Plugin for GameUiPlugin {
         app.add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_ui))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(handle_turn_state_button::<TakeGameButton>)
+                    .with_system(handle_turn_state_button::<SellGameButton>)
                     .with_system(handle_confirm_button_interaction),
             )
             .add_system_set(

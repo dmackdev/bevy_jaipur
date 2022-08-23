@@ -5,3 +5,10 @@ pub enum AppState {
     TurnTransition,
     InGame,
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TurnState {
+    None,
+    Take,
+    Sell,
+}
