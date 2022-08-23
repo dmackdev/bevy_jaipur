@@ -356,6 +356,9 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(tokens);
 }
 
+#[derive(Component)]
+struct GameRoot;
+
 fn setup_game_screen(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -364,85 +367,122 @@ fn setup_game_screen(
     active_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), With<ActivePlayer>>,
     inactive_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), Without<ActivePlayer>>,
 ) {
+    let game_root_entity = commands
+        .spawn_bundle(SpatialBundle::default())
+        .insert(GameRoot)
+        .id();
+
     // Render deck
     for i in 0..deck.cards.len() {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("textures/card/back.png"),
-            transform: Transform::default()
-                .with_translation(DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32)),
-            ..default()
-        });
+        let deck_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("textures/card/back.png"),
+                transform: Transform::default()
+                    .with_translation(DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32)),
+                ..default()
+            })
+            .id();
+
+        commands.entity(game_root_entity).add_child(deck_entity);
     }
 
     // Render market
     for (idx, market_card) in market.cards.iter().enumerate() {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load(&market_card.get_card_texture()),
-            transform: Transform::default().with_translation(
-                DECK_START_POS
-                    - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
-                    - (5 - idx) as f32 * CARD_PADDING * Vec3::X,
-            ),
-            ..default()
-        });
+        let market_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load(&market_card.get_card_texture()),
+                transform: Transform::default().with_translation(
+                    DECK_START_POS
+                        - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
+                        - (5 - idx) as f32 * CARD_PADDING * Vec3::X,
+                ),
+                ..default()
+            })
+            .id();
+
+        commands.entity(game_root_entity).add_child(market_entity);
     }
 
     let (active_player_goods_hand, active_player_camels_hand) = active_player_query.single();
 
     // Render active player's goods hand
     for (idx, good) in active_player_goods_hand.0.iter().enumerate() {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load(&good.get_card_texture()),
-            transform: Transform::default().with_translation(
-                GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
-            ),
-            ..default()
-        });
+        let active_player_goods_hand_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load(&good.get_card_texture()),
+                transform: Transform::default().with_translation(
+                    GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
+                ),
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(game_root_entity)
+            .add_child(active_player_goods_hand_entity);
     }
 
     // Render single camel card if active player has at least one - a player need not reveal how many camel cards they have
     if active_player_camels_hand.0 > 0 {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("textures/card/camel.png"),
-            transform: Transform::default()
-                .with_translation(
-                    GOODS_HAND_START_POS
-                        + Vec3::Y
-                            * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                )
-                .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
-            ..default()
-        });
+        let active_player_camels_hand_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("textures/card/camel.png"),
+                transform: Transform::default()
+                    .with_translation(
+                        GOODS_HAND_START_POS
+                            + Vec3::Y
+                                * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                    )
+                    .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(game_root_entity)
+            .add_child(active_player_camels_hand_entity);
     }
 
     let (inactive_player_goods_hand, inactive_player_camels_hand) = inactive_player_query.single();
 
     for idx in 0..inactive_player_goods_hand.0.len() {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("textures/card/back.png"),
-            transform: Transform::default()
-                .with_translation(
-                    INACTIVE_PLAYER_GOODS_HAND_START_POS
-                        + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
-                )
-                .with_rotation(Quat::from_rotation_z((180.0_f32).to_radians())),
-            ..default()
-        });
+        let inactive_player_goods_hand_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("textures/card/back.png"),
+                transform: Transform::default()
+                    .with_translation(
+                        INACTIVE_PLAYER_GOODS_HAND_START_POS
+                            + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
+                    )
+                    .with_rotation(Quat::from_rotation_z((180.0_f32).to_radians())),
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(game_root_entity)
+            .add_child(inactive_player_goods_hand_entity);
     }
 
     if inactive_player_camels_hand.0 > 0 {
-        commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("textures/card/camel.png"),
-            transform: Transform::default()
-                .with_translation(
-                    INACTIVE_PLAYER_GOODS_HAND_START_POS
-                        - Vec3::Y
-                            * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                )
-                .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
+        let inactive_player_camels_hand_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("textures/card/camel.png"),
+                transform: Transform::default()
+                    .with_translation(
+                        INACTIVE_PLAYER_GOODS_HAND_START_POS
+                            - Vec3::Y
+                                * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
+                    )
+                    .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
 
-            ..default()
-        });
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(game_root_entity)
+            .add_child(inactive_player_camels_hand_entity);
     }
 }
 
@@ -582,7 +622,7 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
-                    .with_system(despawn_entity_with_component::<Sprite>),
+                    .with_system(despawn_entity_with_component::<GameRoot>),
             );
     }
 }
