@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::app_state::AppState;
+use crate::states::AppState;
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);

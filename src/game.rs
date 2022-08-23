@@ -5,9 +5,9 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::iter;
 
-use crate::app_state::AppState;
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
+use crate::states::AppState;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CardType {

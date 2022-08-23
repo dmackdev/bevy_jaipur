@@ -1,16 +1,16 @@
-mod app_state;
 mod common_systems;
 mod event;
 mod game;
 mod game_ui;
 mod main_menu;
+mod states;
 
-use app_state::AppState;
 use bevy::prelude::*;
 use event::EventsPlugin;
 use game::*;
 use game_ui::GameUiPlugin;
 use main_menu::MainMenuPlugin;
+use states::AppState;
 
 fn main() {
     App::new()
