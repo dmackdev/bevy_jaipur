@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
+use bevy_prototype_lyon::shapes::Polygon;
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -60,6 +62,9 @@ pub struct MarketCard;
 
 #[derive(Component)]
 pub struct ActivePlayerGoodsCard;
+
+#[derive(Component)]
+pub struct SelectedCard;
 
 #[derive(Clone)]
 pub struct Deck {
@@ -628,6 +633,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InteractionPlugin)
+            .add_plugin(ShapePlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
             .add_system_set(
                 SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),
@@ -658,22 +664,49 @@ impl Plugin for GamePlugin {
 }
 
 fn interaction_system(
+    mut commands: Commands,
     mouse_button_input: Res<Input<MouseButton>>,
     interaction_state: Res<InteractionState>,
-    mut market_card_query: Query<
-        (Entity, &Card),
+    mut card_query: Query<
+        (Entity, &Card, &Interactable),
         Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>,
     >,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         info!("left mouse just pressed");
-        for (entity, card) in market_card_query.iter_mut() {
+        for (entity, card, interactable) in card_query.iter_mut() {
             if interaction_state
                 .get_group(Group(0))
                 .iter()
                 .any(|(e, _)| *e == entity)
             {
                 info!("{:?}", card.0);
+
+                let bounding_mesh = Polygon {
+                    points: vec![
+                        Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.0.y),
+                        Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.0.y),
+                        Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.1.y),
+                        Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.1.y),
+                    ],
+                    closed: true,
+                };
+
+                let selection_outline_entity = commands
+                    .spawn_bundle(GeometryBuilder::build_as(
+                        &bounding_mesh,
+                        DrawMode::Stroke(StrokeMode::new(Color::YELLOW, 10.0)),
+                        Transform::default(),
+                    ))
+                    .id();
+
+                let selected_card_entity = commands
+                    .spawn_bundle(SpatialBundle::default())
+                    .insert(SelectedCard)
+                    .add_child(selection_outline_entity)
+                    .id();
+
+                commands.entity(entity).add_child(selected_card_entity);
             }
         }
     }
