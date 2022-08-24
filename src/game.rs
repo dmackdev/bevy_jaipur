@@ -66,6 +66,12 @@ pub struct ActivePlayerGoodsCard;
 #[derive(Component)]
 pub struct SelectedCard;
 
+#[derive(Component)]
+pub struct ClickedCard;
+
+#[derive(Component)]
+pub struct CardOutline;
+
 #[derive(Clone)]
 pub struct Deck {
     pub cards: Vec<CardType>,
@@ -220,13 +226,18 @@ impl Tokens {
     }
 }
 
+#[derive(Default, Clone)]
+struct SelectedCardState(Vec<Entity>);
+
 fn handle_when_resources_ready(
     mut state: ResMut<State<AppState>>,
     deck: Option<Res<Deck>>,
     market: Option<Res<Market>>,
     tokens: Option<Res<Tokens>>,
+    selected_card_state: Option<Res<SelectedCardState>>,
 ) {
-    let resources_are_ready = deck.is_some() && market.is_some() && tokens.is_some();
+    let resources_are_ready =
+        deck.is_some() && market.is_some() && tokens.is_some() && selected_card_state.is_some();
 
     if resources_are_ready {
         state.set(AppState::TurnTransition).unwrap();
@@ -370,6 +381,7 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(deck);
     commands.insert_resource(market);
     commands.insert_resource(tokens);
+    commands.init_resource::<SelectedCardState>();
 }
 
 #[derive(Component)]
@@ -659,7 +671,11 @@ impl Plugin for GamePlugin {
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
-            .add_system(interaction_system);
+            .add_system_set(
+                SystemSet::on_update(TurnState::Take)
+                    .with_system(interaction_system)
+                    .with_system(update_selected_card_state.after(interaction_system)),
+            );
     }
 }
 
@@ -667,20 +683,43 @@ fn interaction_system(
     mut commands: Commands,
     mouse_button_input: Res<Input<MouseButton>>,
     interaction_state: Res<InteractionState>,
-    mut card_query: Query<
-        (Entity, &Card, &Interactable),
-        Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>,
-    >,
+    mut card_query: Query<Entity, Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        info!("left mouse just pressed");
-        for (entity, card, interactable) in card_query.iter_mut() {
+        for card_entity in card_query.iter_mut() {
             if interaction_state
                 .get_group(Group(0))
                 .iter()
-                .any(|(e, _)| *e == entity)
+                .any(|(e, _)| *e == card_entity)
             {
-                info!("{:?}", card.0);
+                commands.entity(card_entity).insert(ClickedCard);
+            }
+        }
+    }
+}
+
+fn update_selected_card_state(
+    mut commands: Commands,
+    mut selected_card_state: ResMut<SelectedCardState>,
+    clicked_card_query: Query<(Entity, &Interactable, Option<&Children>), Added<ClickedCard>>,
+    card_outline_query: Query<Entity, With<CardOutline>>,
+) {
+    for (clicked_card_entity, interactable, children) in clicked_card_query.iter() {
+        let selected_card_state_index = selected_card_state
+            .0
+            .iter()
+            .position(|e| *e == clicked_card_entity);
+
+        match selected_card_state_index {
+            Some(idx) => {
+                selected_card_state.0.remove(idx);
+                for &child in children.unwrap().iter() {
+                    let card_outline_entity = card_outline_query.get(child).unwrap();
+                    commands.entity(card_outline_entity).despawn_recursive();
+                }
+            }
+            None => {
+                selected_card_state.0.push(clicked_card_entity);
 
                 let bounding_mesh = Polygon {
                     points: vec![
@@ -692,22 +731,21 @@ fn interaction_system(
                     closed: true,
                 };
 
-                let selection_outline_entity = commands
-                    .spawn_bundle(GeometryBuilder::build_as(
+                let selected_card_entity = commands
+                    .spawn_bundle(SpatialBundle::default())
+                    .insert_bundle(GeometryBuilder::build_as(
                         &bounding_mesh,
                         DrawMode::Stroke(StrokeMode::new(Color::YELLOW, 10.0)),
                         Transform::default(),
                     ))
+                    .insert(CardOutline)
                     .id();
 
-                let selected_card_entity = commands
-                    .spawn_bundle(SpatialBundle::default())
-                    .insert(SelectedCard)
-                    .add_child(selection_outline_entity)
-                    .id();
-
-                commands.entity(entity).add_child(selected_card_entity);
+                commands
+                    .entity(clicked_card_entity)
+                    .add_child(selected_card_entity);
             }
-        }
+        };
+        commands.entity(clicked_card_entity).remove::<ClickedCard>();
     }
 }
