@@ -7,6 +7,7 @@ use std::iter;
 
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
+use crate::interaction::InteractionPlugin;
 use crate::states::AppState;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -600,7 +601,8 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
+        app.add_plugin(InteractionPlugin)
+            .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
             .add_system_set(
                 SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),
             )
