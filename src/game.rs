@@ -7,10 +7,14 @@ use std::iter;
 
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
+#[cfg(feature = "debug")]
+use crate::interaction::InteractionDebugPlugin as InteractionPlugin;
+#[cfg(not(feature = "debug"))]
 use crate::interaction::InteractionPlugin;
-use crate::states::AppState;
+use crate::interaction::{Group, Interactable, InteractionState};
+use crate::states::{AppState, TurnState};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CardType {
     Camel,
     Good(GoodType),
@@ -50,6 +54,12 @@ impl GoodType {
 
 #[derive(Component, Clone, Debug)]
 pub struct Card(pub CardType);
+
+#[derive(Component)]
+pub struct MarketCard;
+
+#[derive(Component)]
+pub struct ActivePlayerGoodsCard;
 
 #[derive(Clone)]
 pub struct Deck {
@@ -399,6 +409,8 @@ fn setup_game_screen(
                 ),
                 ..default()
             })
+            .insert(Card(*market_card))
+            .insert(MarketCard)
             .id();
 
         commands.entity(game_root_entity).add_child(market_entity);
@@ -416,6 +428,8 @@ fn setup_game_screen(
                 ),
                 ..default()
             })
+            .insert(Card(CardType::Good(*good)))
+            .insert(ActivePlayerGoodsCard)
             .id();
 
         commands
@@ -597,6 +611,18 @@ fn handle_confirm_turn_event(
     }
 }
 
+fn setup_for_take_action(
+    mut commands: Commands,
+    query: Query<Entity, Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).insert(Interactable {
+            groups: vec![Group(0)],
+            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
+        });
+    }
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -625,6 +651,30 @@ impl Plugin for GamePlugin {
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
                     .with_system(despawn_entity_with_component::<GameRoot>),
-            );
+            )
+            .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
+            .add_system(interaction_system);
+    }
+}
+
+fn interaction_system(
+    mouse_button_input: Res<Input<MouseButton>>,
+    interaction_state: Res<InteractionState>,
+    mut market_card_query: Query<
+        (Entity, &Card),
+        Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>,
+    >,
+) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        info!("left mouse just pressed");
+        for (entity, card) in market_card_query.iter_mut() {
+            if interaction_state
+                .get_group(Group(0))
+                .iter()
+                .any(|(e, _)| *e == entity)
+            {
+                info!("{:?}", card.0);
+            }
+        }
     }
 }
