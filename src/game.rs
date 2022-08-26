@@ -1,9 +1,10 @@
 use bevy::prelude::*;
+use bevy::render::render_resource::Texture;
 use bevy_interact_2d::*;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
 use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{Animator, EaseFunction, Tween, TweeningPlugin, TweeningType};
+use bevy_tweening::{Animator, Delay, EaseFunction, Tween, TweeningPlugin, TweeningType};
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -381,6 +382,9 @@ fn setup_game(mut commands: Commands) {
 #[derive(Component)]
 struct GameRoot;
 
+#[derive(Component)]
+struct DeckCard(usize);
+
 fn setup_game_screen(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -395,7 +399,7 @@ fn setup_game_screen(
         .id();
 
     // Render deck
-    for i in 0..deck.cards.len() {
+    for (i, card_type) in deck.cards.iter().enumerate() {
         let deck_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load("textures/card/back.png"),
@@ -403,6 +407,8 @@ fn setup_game_screen(
                     .with_translation(DECK_START_POS + Vec3::new(i as f32, i as f32, i as f32)),
                 ..default()
             })
+            .insert(Card(*card_type))
+            .insert(DeckCard(i))
             .id();
 
         commands.entity(game_root_entity).add_child(deck_entity);
@@ -413,11 +419,7 @@ fn setup_game_screen(
         let market_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load(&market_card.get_card_texture()),
-                transform: Transform::default().with_translation(
-                    DECK_START_POS
-                        - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
-                        - (5 - idx) as f32 * CARD_PADDING * Vec3::X,
-                ),
+                transform: Transform::default().with_translation(get_market_card_translation(idx)),
                 ..default()
             })
             .insert(Card(*market_card))
@@ -600,8 +602,10 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     (camels.len(), goods)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_cards_for_confirm_turn_event(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
     mut deck: ResMut<Deck>,
     mut market: ResMut<Market>,
@@ -610,6 +614,7 @@ fn update_cards_for_confirm_turn_event(
         With<SelectedCard>,
     >,
     mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
+    mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
 ) {
     for _ev in ev_confirm_turn.iter() {
         if selected_market_cards_query.iter().count() != 1 {
@@ -642,11 +647,42 @@ fn update_cards_for_confirm_turn_event(
                     },
                 );
 
-                commands.entity(card_entity).insert(Animator::new(tween));
+                commands
+                    .entity(card_entity)
+                    .insert(Animator::new(tween))
+                    .remove::<MarketCard>()
+                    .insert(ActivePlayerGoodsCard);
 
-                // TODO replace with card from deck
+                // Replace with card from deck
                 let replacement_card = deck.cards.pop().unwrap();
                 market.cards.push(replacement_card);
+
+                // Get the top deck card - with the highest index
+                let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
+                    deck_cards_query
+                        .iter_mut()
+                        .max_by_key(|(_, dc, _, _, _)| dc.0)
+                        .unwrap();
+
+                // Update the sprite to show the face
+                *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
+
+                // Tween to the market card position
+                let second_tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: deck_card_transform.translation,
+                        end: get_market_card_translation(market_card.0),
+                    },
+                );
+
+                commands
+                    .entity(deck_card_entity)
+                    .insert(Animator::new(second_tween))
+                    .remove::<DeckCard>()
+                    .insert(MarketCard(market_card.0));
             }
         };
     }
@@ -845,4 +881,10 @@ fn handle_selected_card_removed(
 
 fn get_active_player_goods_card_translation(idx: usize) -> Vec3 {
     return GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING);
+}
+
+fn get_market_card_translation(idx: usize) -> Vec3 {
+    return DECK_START_POS
+        - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
+        - (5 - idx) as f32 * CARD_PADDING * Vec3::X;
 }
