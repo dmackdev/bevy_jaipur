@@ -439,6 +439,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_interact_2d"
+version = "0.8.0"
+source = "git+https://github.com/Anshorei/bevy_rei?rev=e326e32#e326e32caf6d0d8dd0e5a1432a6eec09b03eddb1"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_internal"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -481,6 +489,7 @@ name = "bevy_jaipur"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_interact_2d",
  "bevy_prototype_lyon",
  "bevy_tweening",
  "enum-map",

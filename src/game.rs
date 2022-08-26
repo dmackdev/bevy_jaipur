@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_prototype_lyon::entity::ShapeBundle;
+use bevy_interact_2d::*;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
 use bevy_tweening::lens::TransformPositionLens;
@@ -13,11 +13,6 @@ use std::time::Duration;
 
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
-#[cfg(feature = "debug")]
-use crate::interaction::InteractionDebugPlugin as InteractionPlugin;
-#[cfg(not(feature = "debug"))]
-use crate::interaction::InteractionPlugin;
-use crate::interaction::{Group, Interactable, InteractionState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

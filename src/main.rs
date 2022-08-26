@@ -2,15 +2,14 @@ mod common_systems;
 mod event;
 mod game;
 mod game_ui;
-mod interaction;
 mod main_menu;
 mod states;
 
 use bevy::prelude::*;
+use bevy_interact_2d::{Group, InteractionSource};
 use event::EventsPlugin;
 use game::*;
 use game_ui::GameUiPlugin;
-use interaction::{Group, InteractionSource};
 use main_menu::MainMenuPlugin;
 use states::{AppState, TurnState};
 
