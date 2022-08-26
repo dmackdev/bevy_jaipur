@@ -59,7 +59,7 @@ impl GoodType {
 pub struct Card(pub CardType);
 
 #[derive(Component)]
-pub struct MarketCard;
+pub struct MarketCard(usize);
 
 #[derive(Component)]
 pub struct ActivePlayerGoodsCard;
@@ -422,7 +422,7 @@ fn setup_game_screen(
                 ..default()
             })
             .insert(Card(*market_card))
-            .insert(MarketCard)
+            .insert(MarketCard(idx))
             .id();
 
         commands.entity(game_root_entity).add_child(market_entity);
@@ -435,9 +435,8 @@ fn setup_game_screen(
         let active_player_goods_hand_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load(&good.get_card_texture()),
-                transform: Transform::default().with_translation(
-                    GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING),
-                ),
+                transform: Transform::default()
+                    .with_translation(get_active_player_goods_card_translation(idx)),
                 ..default()
             })
             .insert(Card(CardType::Good(*good)))
@@ -602,6 +601,45 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     (camels.len(), goods)
 }
 
+fn update_cards_for_confirm_turn_event(
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    mut deck: ResMut<Deck>,
+    mut market: ResMut<Market>,
+    mut selected_market_cards_query: Query<
+        (&Card, &MarketCard, &mut Transform),
+        With<SelectedCard>,
+    >,
+    mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
+) {
+    for _ev in ev_confirm_turn.iter() {
+        if selected_market_cards_query.iter().count() != 1 {
+            return;
+        }
+
+        let mut active_player_goods_hand = active_player_query.single_mut();
+
+        // Handling taking single card only for now
+        let (card, market_card, mut transform) = selected_market_cards_query.single_mut();
+
+        match card.0 {
+            CardType::Camel => todo!(),
+            CardType::Good(good) => {
+                // Remove from market resource
+                market.cards.remove(market_card.0);
+
+                // add to active player goods hand
+                active_player_goods_hand.0.push(good);
+                transform.translation =
+                    get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1);
+
+                // TODO replace with card from deck
+                let replacement_card = deck.cards.pop().unwrap();
+                market.cards.push(replacement_card);
+            }
+        };
+    }
+}
+
 fn handle_confirm_turn_event(
     mut commands: Commands,
     mut state: ResMut<State<AppState>>,
@@ -659,7 +697,11 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
             .add_system_set(
-                SystemSet::on_update(AppState::InGame).with_system(handle_confirm_turn_event),
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(
+                        update_cards_for_confirm_turn_event.before(handle_confirm_turn_event),
+                    )
+                    .with_system(handle_confirm_turn_event),
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
@@ -742,4 +784,8 @@ fn update_card_as_unselected(
             .remove::<SelectedCard>()
             .remove::<ClickedCard>();
     }
+}
+
+fn get_active_player_goods_card_translation(idx: usize) -> Vec3 {
+    return GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING);
 }
