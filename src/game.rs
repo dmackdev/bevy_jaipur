@@ -2,11 +2,14 @@ use bevy::prelude::*;
 use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
+use bevy_tweening::lens::TransformPositionLens;
+use bevy_tweening::{Animator, EaseFunction, Tween, TweeningPlugin, TweeningType};
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::iter;
+use std::time::Duration;
 
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
@@ -602,11 +605,12 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
 }
 
 fn update_cards_for_confirm_turn_event(
+    mut commands: Commands,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
     mut deck: ResMut<Deck>,
     mut market: ResMut<Market>,
-    mut selected_market_cards_query: Query<
-        (&Card, &MarketCard, &mut Transform),
+    selected_market_cards_query: Query<
+        (Entity, &Card, &MarketCard, &Transform),
         With<SelectedCard>,
     >,
     mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
@@ -619,7 +623,7 @@ fn update_cards_for_confirm_turn_event(
         let mut active_player_goods_hand = active_player_query.single_mut();
 
         // Handling taking single card only for now
-        let (card, market_card, mut transform) = selected_market_cards_query.single_mut();
+        let (card_entity, card, market_card, transform) = selected_market_cards_query.single();
 
         match card.0 {
             CardType::Camel => todo!(),
@@ -629,8 +633,20 @@ fn update_cards_for_confirm_turn_event(
 
                 // add to active player goods hand
                 active_player_goods_hand.0.push(good);
-                transform.translation =
-                    get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1);
+
+                let tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end: get_active_player_goods_card_translation(
+                            active_player_goods_hand.0.len() - 1,
+                        ),
+                    },
+                );
+
+                commands.entity(card_entity).insert(Animator::new(tween));
 
                 // TODO replace with card from deck
                 let replacement_card = deck.cards.pop().unwrap();
@@ -657,7 +673,8 @@ fn handle_confirm_turn_event(
 
         commands.entity(inactive_player_entity).insert(ActivePlayer);
 
-        state.set(AppState::TurnTransition).unwrap();
+        // TODO: progress state after all tweens complete
+        // state.set(AppState::TurnTransition).unwrap();
     }
 }
 
@@ -679,6 +696,7 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InteractionPlugin)
             .add_plugin(ShapePlugin)
+            .add_plugin(TweeningPlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
             .add_system_set(
                 SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),
