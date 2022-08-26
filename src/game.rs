@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
 use enum_map::{enum_map, Enum, EnumMap};
@@ -226,18 +227,13 @@ impl Tokens {
     }
 }
 
-#[derive(Default, Clone)]
-struct SelectedCardState(Vec<Entity>);
-
 fn handle_when_resources_ready(
     mut state: ResMut<State<AppState>>,
     deck: Option<Res<Deck>>,
     market: Option<Res<Market>>,
     tokens: Option<Res<Tokens>>,
-    selected_card_state: Option<Res<SelectedCardState>>,
 ) {
-    let resources_are_ready =
-        deck.is_some() && market.is_some() && tokens.is_some() && selected_card_state.is_some();
+    let resources_are_ready = deck.is_some() && market.is_some() && tokens.is_some();
 
     if resources_are_ready {
         state.set(AppState::TurnTransition).unwrap();
@@ -381,7 +377,6 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(deck);
     commands.insert_resource(market);
     commands.insert_resource(tokens);
-    commands.init_resource::<SelectedCardState>();
 }
 
 #[derive(Component)]
@@ -673,13 +668,14 @@ impl Plugin for GamePlugin {
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
             .add_system_set(
                 SystemSet::on_update(TurnState::Take)
-                    .with_system(interaction_system)
-                    .with_system(update_selected_card_state.after(interaction_system)),
+                    .with_system(update_card_as_clicked)
+                    .with_system(update_card_as_selected.after(update_card_as_clicked))
+                    .with_system(update_card_as_unselected.after(update_card_as_clicked)),
             );
     }
 }
 
-fn interaction_system(
+fn update_card_as_clicked(
     mut commands: Commands,
     mouse_button_input: Res<Input<MouseButton>>,
     interaction_state: Res<InteractionState>,
@@ -698,54 +694,52 @@ fn interaction_system(
     }
 }
 
-fn update_selected_card_state(
+fn update_card_as_selected(
     mut commands: Commands,
-    mut selected_card_state: ResMut<SelectedCardState>,
-    clicked_card_query: Query<(Entity, &Interactable, Option<&Children>), Added<ClickedCard>>,
+    clicked_card_query: Query<(Entity, &Interactable), (Added<ClickedCard>, Without<SelectedCard>)>,
+) {
+    for (clicked_card_entity, interactable) in clicked_card_query.iter() {
+        let bounding_mesh = Polygon {
+            points: vec![
+                Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.0.y),
+                Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.0.y),
+                Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.1.y),
+                Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.1.y),
+            ],
+            closed: true,
+        };
+
+        let card_outline_entity = commands
+            .spawn_bundle(SpatialBundle::default())
+            .insert_bundle(GeometryBuilder::build_as(
+                &bounding_mesh,
+                DrawMode::Stroke(StrokeMode::new(Color::YELLOW, 10.0)),
+                Transform::default(),
+            ))
+            .insert(CardOutline)
+            .id();
+
+        commands
+            .entity(clicked_card_entity)
+            .insert(SelectedCard)
+            .remove::<ClickedCard>()
+            .add_child(card_outline_entity);
+    }
+}
+
+fn update_card_as_unselected(
+    mut commands: Commands,
+    clicked_card_query: Query<(Entity, &Children), (Added<ClickedCard>, With<SelectedCard>)>,
     card_outline_query: Query<Entity, With<CardOutline>>,
 ) {
-    for (clicked_card_entity, interactable, children) in clicked_card_query.iter() {
-        let selected_card_state_index = selected_card_state
-            .0
-            .iter()
-            .position(|e| *e == clicked_card_entity);
-
-        match selected_card_state_index {
-            Some(idx) => {
-                selected_card_state.0.remove(idx);
-                for &child in children.unwrap().iter() {
-                    let card_outline_entity = card_outline_query.get(child).unwrap();
-                    commands.entity(card_outline_entity).despawn_recursive();
-                }
-            }
-            None => {
-                selected_card_state.0.push(clicked_card_entity);
-
-                let bounding_mesh = Polygon {
-                    points: vec![
-                        Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.0.y),
-                        Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.0.y),
-                        Vec2::new(interactable.bounding_box.1.x, interactable.bounding_box.1.y),
-                        Vec2::new(interactable.bounding_box.0.x, interactable.bounding_box.1.y),
-                    ],
-                    closed: true,
-                };
-
-                let selected_card_entity = commands
-                    .spawn_bundle(SpatialBundle::default())
-                    .insert_bundle(GeometryBuilder::build_as(
-                        &bounding_mesh,
-                        DrawMode::Stroke(StrokeMode::new(Color::YELLOW, 10.0)),
-                        Transform::default(),
-                    ))
-                    .insert(CardOutline)
-                    .id();
-
-                commands
-                    .entity(clicked_card_entity)
-                    .add_child(selected_card_entity);
-            }
-        };
-        commands.entity(clicked_card_entity).remove::<ClickedCard>();
+    for (clicked_card_entity, children) in clicked_card_query.iter() {
+        for &child in children.iter() {
+            let card_outline_entity = card_outline_query.get(child).unwrap();
+            commands.entity(card_outline_entity).despawn_recursive();
+        }
+        commands
+            .entity(clicked_card_entity)
+            .remove::<SelectedCard>()
+            .remove::<ClickedCard>();
     }
 }
