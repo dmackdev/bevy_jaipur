@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
+use crate::label::Label;
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -673,6 +674,18 @@ fn handle_confirm_turn_event(
     }
 }
 
+fn remove_card_selections_on_confirm_turn(
+    mut commands: Commands,
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    selected_cards_query: Query<Entity, With<SelectedCard>>,
+) {
+    for _ev in ev_confirm_turn.iter() {
+        for entity in selected_cards_query.iter() {
+            commands.entity(entity).remove::<SelectedCard>();
+        }
+    }
+}
+
 fn setup_for_take_action(
     mut commands: Commands,
     query: Query<Entity, Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>>,
@@ -712,9 +725,16 @@ impl Plugin for GamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(
-                        update_cards_for_confirm_turn_event.before(handle_confirm_turn_event),
+                        update_cards_for_confirm_turn_event
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
                     )
-                    .with_system(handle_confirm_turn_event),
+                    .with_system(
+                        handle_confirm_turn_event
+                            .label(Label::EventReader)
+                            .after(Label::EventWriter),
+                    ),
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)
@@ -725,8 +745,14 @@ impl Plugin for GamePlugin {
                 SystemSet::on_update(TurnState::Take)
                     .with_system(update_card_as_clicked)
                     .with_system(update_card_as_selected.after(update_card_as_clicked))
-                    .with_system(update_card_as_unselected.after(update_card_as_clicked)),
-            );
+                    .with_system(update_card_as_unselected.after(update_card_as_clicked))
+                    .with_system(
+                        remove_card_selections_on_confirm_turn
+                            .label(Label::EventReader)
+                            .after(Label::EventWriter),
+                    ),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_removed);
     }
 }
 
@@ -784,18 +810,36 @@ fn update_card_as_selected(
 
 fn update_card_as_unselected(
     mut commands: Commands,
-    clicked_card_query: Query<(Entity, &Children), (Added<ClickedCard>, With<SelectedCard>)>,
+    clicked_card_query: Query<Entity, (Added<ClickedCard>, With<SelectedCard>)>,
+) {
+    for clicked_card_entity in clicked_card_query.iter() {
+        commands
+            .entity(clicked_card_entity)
+            .remove::<SelectedCard>();
+    }
+}
+
+// This system reacts to removal of SelectedCard components for removing the outline - this means that it can be reused for both deselecting cards via clicking, or when the turn's move is confirmed.
+fn handle_selected_card_removed(
+    mut commands: Commands,
+    removed_selected_card: RemovedComponents<SelectedCard>,
+    card_query: Query<(Entity, &Children), (With<Card>, Without<SelectedCard>)>,
     card_outline_query: Query<Entity, With<CardOutline>>,
 ) {
-    for (clicked_card_entity, children) in clicked_card_query.iter() {
+    if removed_selected_card.iter().len() == 0 {
+        return;
+    }
+
+    let cards_with_selected_removed_query = card_query
+        .iter()
+        .filter(|(e, _)| removed_selected_card.iter().contains(e));
+
+    for (clicked_card_entity, children) in cards_with_selected_removed_query {
         for &child in children.iter() {
             let card_outline_entity = card_outline_query.get(child).unwrap();
             commands.entity(card_outline_entity).despawn_recursive();
         }
-        commands
-            .entity(clicked_card_entity)
-            .remove::<SelectedCard>()
-            .remove::<ClickedCard>();
+        commands.entity(clicked_card_entity).remove::<ClickedCard>();
     }
 }
 

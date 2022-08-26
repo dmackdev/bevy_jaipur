@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     common_systems::despawn_entity_with_component,
     event::ConfirmTurnEvent,
+    label::Label,
     states::{AppState, TurnState},
 };
 
@@ -208,7 +209,11 @@ impl Plugin for GameUiPlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(handle_turn_state_button::<TakeGameButton>)
                     .with_system(handle_turn_state_button::<SellGameButton>)
-                    .with_system(handle_confirm_button_interaction),
+                    .with_system(
+                        handle_confirm_button_interaction
+                            .label(Label::EventWriter)
+                            .before(Label::EventReader),
+                    ),
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::InGame)

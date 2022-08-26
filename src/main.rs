@@ -2,6 +2,7 @@ mod common_systems;
 mod event;
 mod game;
 mod game_ui;
+mod label;
 mod main_menu;
 mod states;
 
