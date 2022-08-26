@@ -3,7 +3,6 @@ use std::fmt;
 use bevy::prelude::*;
 
 use crate::{
-    common_systems::despawn_entity_with_component,
     event::ConfirmTurnEvent,
     label::Label,
     states::{AppState, TurnState},
@@ -115,6 +114,9 @@ fn create_button(
         });
 }
 
+#[derive(Component)]
+struct GameUiRoot;
+
 fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(NodeBundle {
@@ -131,6 +133,7 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::default().with_translation(Vec3::new(300.0, 0.0, 0.0)),
             ..default()
         })
+        .insert(GameUiRoot)
         .with_children(|parent| create_button(parent, TAKE_BUTTON, &asset_server))
         .with_children(|parent| create_button(parent, SELL_BUTTON, &asset_server))
         .with_children(|parent| create_button(parent, CONFIRM_BUTTON, &asset_server));
@@ -171,12 +174,14 @@ impl From<GameButtonKind> for TurnState {
 }
 
 fn handle_confirm_button_interaction(
+    mut commands: Commands,
     mut turn_state: ResMut<State<TurnState>>,
     mut ev_confirm_turn: EventWriter<ConfirmTurnEvent>,
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, &ConfirmGameButton),
         Changed<Interaction>,
     >,
+    ui_root_query: Query<Entity, With<GameUiRoot>>,
 ) {
     for (interaction, mut color, game_button) in &mut interaction_query {
         match *interaction {
@@ -189,6 +194,7 @@ fn handle_confirm_button_interaction(
                 }
 
                 ev_confirm_turn.send(ConfirmTurnEvent);
+                commands.entity(ui_root_query.single()).despawn_recursive();
             }
             Interaction::Hovered => {
                 *color = game_button.0.hovered_color.into();
@@ -214,10 +220,6 @@ impl Plugin for GameUiPlugin {
                             .label(Label::EventWriter)
                             .before(Label::EventReader),
                     ),
-            )
-            .add_system_set(
-                SystemSet::on_exit(AppState::InGame)
-                    .with_system(despawn_entity_with_component::<Node>),
             );
     }
 }
