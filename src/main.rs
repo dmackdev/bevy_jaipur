@@ -13,6 +13,8 @@ use game_ui::GameUiPlugin;
 use main_menu::MainMenuPlugin;
 use states::{AppState, TurnState};
 
+#[allow(clippy::type_complexity)]
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
