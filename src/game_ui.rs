@@ -264,6 +264,7 @@ fn handle_selected_card_state_change(
     selected_card_state: Res<SelectedCardState>,
     mut move_validity_state: ResMut<MoveValidity>,
     market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
+    all_market_card_query: Query<&Card, With<MarketCard>>,
     camel_hand_selected_card_query: Query<&Card, (With<ActivePlayerCamelCard>, With<SelectedCard>)>,
     goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
     all_goods_hand_card_query: Query<&Card, With<ActivePlayerGoodsCard>>,
@@ -282,6 +283,22 @@ fn handle_selected_card_state_change(
             *move_validity_state = MoveValidity::Valid;
             return;
         }
+    }
+
+    // Take all camels from market rule
+    let total_num_camels_in_market = all_market_card_query
+        .iter()
+        .filter(|c| matches!(c.0, CardType::Camel))
+        .count();
+
+    if market_selected_card_query
+        .iter()
+        .all(|c| matches!(c.0, CardType::Camel))
+        && market_selected_card_query.iter().count() == total_num_camels_in_market
+        && goods_hand_selected_card_query.iter().count() == 0
+    {
+        *move_validity_state = MoveValidity::Valid;
+        return;
     }
 
     *move_validity_state = MoveValidity::Invalid;
