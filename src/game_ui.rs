@@ -161,30 +161,26 @@ fn handle_turn_state_button(
     for (interacted_entity, interaction, mut color, game_button) in &mut interaction_query {
         let is_button_selected = *turn_state.current() == game_button.0.kind.into();
 
-        match *interaction {
-            Interaction::Clicked => {
-                if is_button_selected {
-                    *color = game_button.0.normal_color.into();
-                    turn_state.set(TurnState::None).unwrap();
-                } else {
-                    *color = game_button.0.pressed_color.into();
-                    turn_state.set(game_button.0.kind.into()).unwrap();
-                    commands.entity(interacted_entity).insert(JustClickedButton);
-                }
+        match (*interaction, is_button_selected) {
+            (Interaction::Clicked, true) => {
+                *color = game_button.0.normal_color.into();
+                turn_state.set(TurnState::None).unwrap();
             }
-            Interaction::Hovered => {
-                if is_button_selected {
-                    return;
-                }
+            (Interaction::Clicked, false) => {
+                *color = game_button.0.pressed_color.into();
+                turn_state.set(game_button.0.kind.into()).unwrap();
+                commands.entity(interacted_entity).insert(JustClickedButton);
+            }
+            (Interaction::Hovered, false) => {
                 *color = game_button.0.hovered_color.into();
             }
-            Interaction::None => {
-                if is_button_selected {
-                    *color = game_button.0.pressed_color.into();
-                } else {
-                    *color = game_button.0.normal_color.into();
-                }
+            (Interaction::None, true) => {
+                *color = game_button.0.pressed_color.into();
             }
+            (Interaction::None, false) => {
+                *color = game_button.0.normal_color.into();
+            }
+            (_, _) => return,
         }
     }
 }
