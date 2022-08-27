@@ -4,6 +4,7 @@ pub enum AppState {
     InitGame,
     TurnTransition,
     InGame,
+    WaitForTweensToFinish,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

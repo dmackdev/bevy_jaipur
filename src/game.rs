@@ -4,7 +4,9 @@ use bevy_interact_2d::*;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
 use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{Animator, Delay, EaseFunction, Tween, TweeningPlugin, TweeningType};
+use bevy_tweening::{
+    Animator, Delay, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType,
+};
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -232,8 +234,10 @@ fn handle_when_resources_ready(
     deck: Option<Res<Deck>>,
     market: Option<Res<Market>>,
     tokens: Option<Res<Tokens>>,
+    tween_state: Option<Res<TweenState>>,
 ) {
-    let resources_are_ready = deck.is_some() && market.is_some() && tokens.is_some();
+    let resources_are_ready =
+        deck.is_some() && market.is_some() && tokens.is_some() && tween_state.is_some();
 
     if resources_are_ready {
         state.set(AppState::TurnTransition).unwrap();
@@ -377,6 +381,7 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(deck);
     commands.insert_resource(market);
     commands.insert_resource(tokens);
+    commands.init_resource::<TweenState>();
 }
 
 #[derive(Component)]
@@ -615,6 +620,7 @@ fn update_cards_for_confirm_turn_event(
     >,
     mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
+    mut tween_state: ResMut<TweenState>,
 ) {
     for _ev in ev_confirm_turn.iter() {
         if selected_market_cards_query.iter().count() != 1 {
@@ -645,7 +651,10 @@ fn update_cards_for_confirm_turn_event(
                             active_player_goods_hand.0.len() - 1,
                         ),
                     },
-                );
+                )
+                .with_completed_event(1);
+
+                tween_state.tweening_entities.push(card_entity);
 
                 commands
                     .entity(card_entity)
@@ -676,7 +685,10 @@ fn update_cards_for_confirm_turn_event(
                         start: deck_card_transform.translation,
                         end: get_market_card_translation(market_card.0),
                     },
-                );
+                )
+                .with_completed_event(2);
+
+                tween_state.tweening_entities.push(deck_card_entity);
 
                 commands
                     .entity(deck_card_entity)
@@ -705,8 +717,7 @@ fn handle_confirm_turn_event(
 
         commands.entity(inactive_player_entity).insert(ActivePlayer);
 
-        // TODO: progress state after all tweens complete
-        // state.set(AppState::TurnTransition).unwrap();
+        state.set(AppState::WaitForTweensToFinish).unwrap();
     }
 }
 
@@ -738,7 +749,8 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(InteractionPlugin)
+        app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
+            .add_plugin(InteractionPlugin)
             .add_plugin(ShapePlugin)
             .add_plugin(TweeningPlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
@@ -773,7 +785,11 @@ impl Plugin for GamePlugin {
                     ),
             )
             .add_system_set(
-                SystemSet::on_exit(AppState::InGame)
+                SystemSet::on_update(AppState::WaitForTweensToFinish)
+                    .with_system(wait_for_tweens_to_finish),
+            )
+            .add_system_set(
+                SystemSet::on_exit(AppState::WaitForTweensToFinish)
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
@@ -887,4 +903,39 @@ fn get_market_card_translation(idx: usize) -> Vec3 {
     return DECK_START_POS
         - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
         - (5 - idx) as f32 * CARD_PADDING * Vec3::X;
+}
+
+#[derive(Default)]
+struct TweenState {
+    tweening_entities: Vec<Entity>,
+    // Distinguishes between there never being any tweening entities in the first place, and actual tweens that started completing
+    did_all_tweens_complete: bool,
+}
+
+struct ScreenTransitionDelayTimer(Timer);
+
+fn wait_for_tweens_to_finish(
+    mut ev_tween_completed: EventReader<TweenCompleted>,
+    mut tween_state: ResMut<TweenState>,
+    mut app_state: ResMut<State<AppState>>,
+    time: Res<Time>,
+    mut timer: ResMut<ScreenTransitionDelayTimer>,
+) {
+    for ev in ev_tween_completed.iter() {
+        let index = tween_state
+            .tweening_entities
+            .iter()
+            .position(|e| *e == ev.entity)
+            .unwrap();
+        tween_state.tweening_entities.remove(index);
+
+        if tween_state.tweening_entities.is_empty() {
+            tween_state.did_all_tweens_complete = true;
+        }
+    }
+
+    if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
+        tween_state.did_all_tweens_complete = false;
+        app_state.set(AppState::TurnTransition).unwrap();
+    }
 }
