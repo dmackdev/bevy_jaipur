@@ -891,7 +891,6 @@ fn update_card_as_selected(
             .remove::<ClickedCard>()
             .add_child(card_outline_entity);
 
-        println!("ADD SELECTED CARD");
         selected_card_state.0.push(clicked_card_entity);
     }
 }
@@ -911,7 +910,7 @@ fn update_card_as_unselected(
             .iter()
             .position(|e| *e == clicked_card_entity)
             .unwrap();
-        println!("REMOVE SELECTED CARD");
+
         selected_card_state.0.remove(idx);
     }
 }
