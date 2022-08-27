@@ -225,7 +225,8 @@ fn handle_confirm_button_interaction(
     mut commands: Commands,
     mut turn_state: ResMut<State<TurnState>>,
     mut ev_confirm_turn: EventWriter<ConfirmTurnEvent>,
-    move_validity_state: Res<MoveValidity>,
+    mut move_validity_state: ResMut<MoveValidity>,
+    mut selected_card_state: ResMut<SelectedCardState>,
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, &GameButton),
         (Changed<Interaction>, With<ConfirmGameButton>),
@@ -245,6 +246,9 @@ fn handle_confirm_button_interaction(
                 if *turn_state.current() != desired_turn_state {
                     turn_state.set(desired_turn_state).unwrap();
                 }
+
+                selected_card_state.0.clear();
+                *move_validity_state = MoveValidity::default();
 
                 ev_confirm_turn.send(ConfirmTurnEvent);
                 commands.entity(ui_root_query.single()).despawn_recursive();
