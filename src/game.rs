@@ -679,7 +679,7 @@ fn update_cards_for_confirm_turn_event(
 
                 // Replace with card from deck
                 let replacement_card = deck.cards.pop().unwrap();
-                market.cards.push(replacement_card);
+                market.cards.insert(market_card.0, replacement_card);
 
                 // Get the top deck card - with the highest index
                 let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
