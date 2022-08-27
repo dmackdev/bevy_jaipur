@@ -266,21 +266,24 @@ fn handle_selected_card_state_change(
     market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
     camel_hand_selected_card_query: Query<&Card, (With<ActivePlayerCamelCard>, With<SelectedCard>)>,
     goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
+    all_goods_hand_card_query: Query<&Card, With<ActivePlayerGoodsCard>>,
 ) {
     if !selected_card_state.is_changed() {
         return;
     }
 
-    println!("SELECTED CARD STATE CHANGE {}", selected_card_state.0.len());
-    if market_selected_card_query.iter().count() == 1 {
+    // Take single good from market rule
+    if market_selected_card_query.iter().count() == 1
+        && camel_hand_selected_card_query.iter().count() == 0
+        && goods_hand_selected_card_query.iter().count() == 0
+        && all_goods_hand_card_query.iter().count() < 7
+    {
         if let Card(CardType::Good(_)) = market_selected_card_query.iter().next().unwrap() {
-            println!("VALID");
             *move_validity_state = MoveValidity::Valid;
             return;
         }
     }
 
-    println!("INVALID");
     *move_validity_state = MoveValidity::Invalid;
 }
 
