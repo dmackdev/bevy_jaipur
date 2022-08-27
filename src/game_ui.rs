@@ -278,12 +278,22 @@ fn handle_selected_card_state_change(
         .filter(|c| matches!(c.0, CardType::Good(_)))
         .count();
 
+    let num_selected_camels_from_hand = camel_hand_selected_card_query.iter().count();
+
+    let num_total_selected_cards_in_market = market_selected_card_query.iter().count();
+
+    let num_selected_goods_from_hand = goods_hand_selected_card_query.iter().count();
+
+    let num_total_goods_in_hand = all_goods_hand_card_query.iter().count();
+
     // Take single good from market rule
     if num_selected_market_goods_cards == 1
-        && camel_hand_selected_card_query.iter().count() == 0
-        && goods_hand_selected_card_query.iter().count() == 0
-        && all_goods_hand_card_query.iter().count() < 7
+        && num_total_selected_cards_in_market == 1
+        && num_selected_camels_from_hand == 0
+        && num_selected_goods_from_hand == 0
+        && num_total_goods_in_hand < 7
     {
+        println!("TAKE SINGLE GOOD");
         *move_validity_state = MoveValidity::Valid;
         return;
     }
@@ -294,12 +304,31 @@ fn handle_selected_card_state_change(
         .filter(|c| matches!(c.0, CardType::Camel))
         .count();
 
-    if market_selected_card_query
-        .iter()
-        .all(|c| matches!(c.0, CardType::Camel))
+    if num_total_selected_cards_in_market > 0
+        && market_selected_card_query
+            .iter()
+            .all(|c| matches!(c.0, CardType::Camel))
         && market_selected_card_query.iter().count() == total_num_camels_in_market
         && goods_hand_selected_card_query.iter().count() == 0
     {
+        println!("TAKE ALL CAMELS");
+        *move_validity_state = MoveValidity::Valid;
+        return;
+    }
+
+    // Exchange at least two goods from the market with combination of camels and goods from player's hand
+    if num_selected_market_goods_cards < 2 {
+        *move_validity_state = MoveValidity::Invalid;
+        return;
+    }
+
+    if num_selected_market_goods_cards > 1
+        && num_selected_market_goods_cards
+            == num_selected_camels_from_hand + num_selected_goods_from_hand
+        && num_selected_market_goods_cards + num_total_goods_in_hand - num_selected_goods_from_hand
+            < 7
+    {
+        println!("EXCHANGE");
         *move_validity_state = MoveValidity::Valid;
         return;
     }
