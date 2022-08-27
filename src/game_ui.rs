@@ -1,6 +1,7 @@
 use std::fmt;
 
 use bevy::prelude::*;
+use itertools::Itertools;
 
 use crate::{
     event::ConfirmTurnEvent,
@@ -29,64 +30,46 @@ struct GameButtonData {
     pressed_color: Color,
 }
 
-trait GameButton {
-    fn get_data(&self) -> GameButtonData;
-}
+#[derive(Component)]
+struct GameButton(GameButtonData);
 
-#[derive(Component, Copy, Clone)]
-struct TakeGameButton(GameButtonData);
+#[derive(Component)]
+struct TakeGameButton;
 
-impl GameButton for TakeGameButton {
-    fn get_data(&self) -> GameButtonData {
-        self.0
-    }
-}
+#[derive(Component)]
+struct SellGameButton;
 
-#[derive(Component, Copy, Clone)]
-struct SellGameButton(GameButtonData);
+#[derive(Component)]
+struct ConfirmGameButton;
 
-impl GameButton for SellGameButton {
-    fn get_data(&self) -> GameButtonData {
-        self.0
-    }
-}
-
-#[derive(Component, Copy, Clone)]
-struct ConfirmGameButton(GameButtonData);
-
-impl GameButton for ConfirmGameButton {
-    fn get_data(&self) -> GameButtonData {
-        self.0
-    }
-}
-
-const TAKE_BUTTON: TakeGameButton = TakeGameButton(GameButtonData {
+const TAKE_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Take,
     normal_color: Color::rgb(0.15, 0.15, 0.15),
     hovered_color: Color::rgb(0.25, 0.25, 0.25),
     pressed_color: Color::rgb(0.35, 0.75, 0.35),
-});
+};
 
-const SELL_BUTTON: SellGameButton = SellGameButton(GameButtonData {
+const SELL_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Sell,
     normal_color: Color::rgb(0.15, 0.15, 0.15),
     hovered_color: Color::rgb(0.25, 0.25, 0.25),
     pressed_color: Color::rgb(0.35, 0.75, 0.35),
-});
+};
 
-const CONFIRM_BUTTON: ConfirmGameButton = ConfirmGameButton(GameButtonData {
+const CONFIRM_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Confirm,
     normal_color: Color::rgb(0.15, 0.15, 0.15),
     hovered_color: Color::rgb(0.25, 0.25, 0.25),
     pressed_color: Color::rgb(0.35, 0.75, 0.35),
-});
+};
 
-fn create_button(
-    parent: &mut ChildBuilder,
-    game_button: impl GameButton + Component + Copy,
+fn create_button<C: Component>(
+    commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-) {
-    parent
+    button_component: C,
+    game_button_data: GameButtonData,
+) -> Entity {
+    commands
         .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(200.0), Val::Px(65.0)),
@@ -98,27 +81,29 @@ fn create_button(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: game_button.get_data().normal_color.into(),
+            color: game_button_data.normal_color.into(),
             ..default()
         })
-        .insert(game_button)
+        .insert(button_component)
+        .insert(GameButton(game_button_data))
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle::from_section(
-                game_button.get_data().kind.to_string(),
+                game_button_data.kind.to_string(),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 40.0,
                     color: Color::rgb(0.9, 0.9, 0.9),
                 },
             ));
-        });
+        })
+        .id()
 }
 
 #[derive(Component)]
 struct GameUiRoot;
 
 fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
+    let root_node_entity = commands
         .spawn_bundle(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
@@ -134,32 +119,94 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .insert(GameUiRoot)
-        .with_children(|parent| create_button(parent, TAKE_BUTTON, &asset_server))
-        .with_children(|parent| create_button(parent, SELL_BUTTON, &asset_server))
-        .with_children(|parent| create_button(parent, CONFIRM_BUTTON, &asset_server));
+        .id();
+
+    let take_button_entity = create_button(
+        &mut commands,
+        &asset_server,
+        TakeGameButton,
+        TAKE_BUTTON_DATA,
+    );
+    let sell_button_entity = create_button(
+        &mut commands,
+        &asset_server,
+        SellGameButton,
+        SELL_BUTTON_DATA,
+    );
+    let confirm_button_entity = create_button(
+        &mut commands,
+        &asset_server,
+        ConfirmGameButton,
+        CONFIRM_BUTTON_DATA,
+    );
+
+    commands.entity(root_node_entity).push_children(&[
+        take_button_entity,
+        sell_button_entity,
+        confirm_button_entity,
+    ]);
 }
 
-fn handle_turn_state_button<B: GameButton + Component>(
+#[derive(Component)]
+struct JustClickedButton;
+
+fn handle_turn_state_button(
+    mut commands: Commands,
     mut turn_state: ResMut<State<TurnState>>,
-    mut interaction_query: Query<(&Interaction, &mut UiColor, &B), Changed<Interaction>>,
+    mut interaction_query: Query<
+        (Entity, &Interaction, &mut UiColor, &GameButton),
+        (Changed<Interaction>, Without<ConfirmGameButton>),
+    >,
 ) {
-    if *turn_state.current() != TurnState::None {
+    for (interacted_entity, interaction, mut color, game_button) in &mut interaction_query {
+        let is_button_selected = *turn_state.current() == game_button.0.kind.into();
+
+        match *interaction {
+            Interaction::Clicked => {
+                if is_button_selected {
+                    *color = game_button.0.normal_color.into();
+                    turn_state.set(TurnState::None).unwrap();
+                } else {
+                    *color = game_button.0.pressed_color.into();
+                    turn_state.set(game_button.0.kind.into()).unwrap();
+                    commands.entity(interacted_entity).insert(JustClickedButton);
+                }
+            }
+            Interaction::Hovered => {
+                if is_button_selected {
+                    return;
+                }
+                *color = game_button.0.hovered_color.into();
+            }
+            Interaction::None => {
+                if is_button_selected {
+                    *color = game_button.0.pressed_color.into();
+                } else {
+                    *color = game_button.0.normal_color.into();
+                }
+            }
+        }
+    }
+}
+
+fn update_unclicked_turn_move_button_colors(
+    mut commands: Commands,
+    just_clicked_button_query: Query<Entity, Added<JustClickedButton>>,
+    mut other_buttons_query: Query<(Entity, &mut UiColor, &GameButton), Without<ConfirmGameButton>>,
+) {
+    if just_clicked_button_query.iter().count() == 0 {
         return;
     }
 
-    for (interaction, mut color, game_button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
-                *color = game_button.get_data().pressed_color.into();
-                turn_state.set(game_button.get_data().kind.into()).unwrap();
-            }
-            Interaction::Hovered => {
-                *color = game_button.get_data().hovered_color.into();
-            }
-            Interaction::None => {
-                *color = game_button.get_data().normal_color.into();
-            }
-        }
+    for e in just_clicked_button_query.iter() {
+        commands.entity(e).remove::<JustClickedButton>();
+    }
+
+    for (_, mut color, game_button) in other_buttons_query
+        .iter_mut()
+        .filter(|(e, _, _)| !just_clicked_button_query.iter().contains(e))
+    {
+        *color = game_button.0.normal_color.into();
     }
 }
 
@@ -178,8 +225,8 @@ fn handle_confirm_button_interaction(
     mut turn_state: ResMut<State<TurnState>>,
     mut ev_confirm_turn: EventWriter<ConfirmTurnEvent>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor, &ConfirmGameButton),
-        Changed<Interaction>,
+        (&Interaction, &mut UiColor, &GameButton),
+        (Changed<Interaction>, With<ConfirmGameButton>),
     >,
     ui_root_query: Query<Entity, With<GameUiRoot>>,
 ) {
@@ -188,7 +235,7 @@ fn handle_confirm_button_interaction(
             Interaction::Clicked => {
                 *color = game_button.0.pressed_color.into();
 
-                let desired_turn_state: TurnState = game_button.get_data().kind.into();
+                let desired_turn_state: TurnState = game_button.0.kind.into();
                 if *turn_state.current() != desired_turn_state {
                     turn_state.set(desired_turn_state).unwrap();
                 }
@@ -213,8 +260,10 @@ impl Plugin for GameUiPlugin {
         app.add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_ui))
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
-                    .with_system(handle_turn_state_button::<TakeGameButton>)
-                    .with_system(handle_turn_state_button::<SellGameButton>)
+                    .with_system(handle_turn_state_button)
+                    .with_system(
+                        update_unclicked_turn_move_button_colors.after(handle_turn_state_button),
+                    )
                     .with_system(
                         handle_confirm_button_interaction
                             .label(Label::EventWriter)
