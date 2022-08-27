@@ -67,6 +67,9 @@ pub struct MarketCard(usize);
 pub struct ActivePlayerGoodsCard;
 
 #[derive(Component)]
+pub struct ActivePlayerCamelCard;
+
+#[derive(Component)]
 pub struct SelectedCard;
 
 #[derive(Component)]
@@ -342,6 +345,11 @@ fn handle_turn_transition_screen_interaction(
 const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
 const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
 const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
+const CAMEL_HAND_START_POS: Vec3 = Vec3::new(
+    GOODS_HAND_START_POS.x,
+    GOODS_HAND_START_POS.y + CARD_DIMENSION.y + CARD_PADDING,
+    0.0,
+);
 const INACTIVE_PLAYER_GOODS_HAND_START_POS: Vec3 = Vec3::new(
     GOODS_HAND_START_POS.x,
     GOODS_HAND_START_POS.y * -1.0,
@@ -454,20 +462,17 @@ fn setup_game_screen(
             .add_child(active_player_goods_hand_entity);
     }
 
-    // Render single camel card if active player has at least one - a player need not reveal how many camel cards they have
-    if active_player_camels_hand.0 > 0 {
+    // Render active player's camel hand
+    for idx in 0..active_player_camels_hand.0 {
         let active_player_camels_hand_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load("textures/card/camel.png"),
                 transform: Transform::default()
-                    .with_translation(
-                        GOODS_HAND_START_POS
-                            + Vec3::Y
-                                * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                    )
-                    .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
+                    .with_translation(get_active_player_camel_card_translation(idx)),
                 ..default()
             })
+            .insert(Card(CardType::Camel))
+            .insert(ActivePlayerCamelCard)
             .id();
 
         commands
@@ -735,7 +740,14 @@ fn remove_card_selections_on_confirm_turn(
 
 fn setup_for_take_action(
     mut commands: Commands,
-    query: Query<Entity, Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>>,
+    query: Query<
+        Entity,
+        Or<(
+            With<MarketCard>,
+            With<ActivePlayerGoodsCard>,
+            With<ActivePlayerCamelCard>,
+        )>,
+    >,
 ) {
     for entity in query.iter() {
         commands.entity(entity).insert(Interactable {
@@ -812,7 +824,14 @@ fn update_card_as_clicked(
     mut commands: Commands,
     mouse_button_input: Res<Input<MouseButton>>,
     interaction_state: Res<InteractionState>,
-    mut card_query: Query<Entity, Or<(With<MarketCard>, With<ActivePlayerGoodsCard>)>>,
+    mut card_query: Query<
+        Entity,
+        Or<(
+            With<MarketCard>,
+            With<ActivePlayerGoodsCard>,
+            With<ActivePlayerCamelCard>,
+        )>,
+    >,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         for card_entity in card_query.iter_mut() {
@@ -896,13 +915,17 @@ fn handle_selected_card_removed(
 }
 
 fn get_active_player_goods_card_translation(idx: usize) -> Vec3 {
-    return GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING);
+    GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
 }
 
 fn get_market_card_translation(idx: usize) -> Vec3 {
-    return DECK_START_POS
+    DECK_START_POS
         - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
-        - (5 - idx) as f32 * CARD_PADDING * Vec3::X;
+        - (5 - idx) as f32 * CARD_PADDING * Vec3::X
+}
+
+fn get_active_player_camel_card_translation(idx: usize) -> Vec3 {
+    CAMEL_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
 }
 
 #[derive(Default)]
