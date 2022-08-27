@@ -276,7 +276,9 @@ fn handle_selected_card_state_change_for_take(
     goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
     all_goods_hand_card_query: Query<&Card, With<ActivePlayerGoodsCard>>,
 ) {
-    if *turn_state.current() != TurnState::Take || !selected_card_state.is_changed() {
+    if *turn_state.current() != TurnState::Take
+        || (!selected_card_state.is_changed() && !turn_state.is_changed())
+    {
         return;
     }
 
@@ -353,7 +355,9 @@ fn handle_selected_card_state_change_for_sell(
     camel_hand_selected_card_query: Query<&Card, (With<ActivePlayerCamelCard>, With<SelectedCard>)>,
     market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
 ) {
-    if *turn_state.current() != TurnState::Sell || !selected_card_state.is_changed() {
+    if *turn_state.current() != TurnState::Sell
+        || (!selected_card_state.is_changed() && !turn_state.is_changed())
+    {
         return;
     }
 
