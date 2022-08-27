@@ -273,16 +273,19 @@ fn handle_selected_card_state_change(
         return;
     }
 
+    let num_selected_market_goods_cards = market_selected_card_query
+        .iter()
+        .filter(|c| matches!(c.0, CardType::Good(_)))
+        .count();
+
     // Take single good from market rule
-    if market_selected_card_query.iter().count() == 1
+    if num_selected_market_goods_cards == 1
         && camel_hand_selected_card_query.iter().count() == 0
         && goods_hand_selected_card_query.iter().count() == 0
         && all_goods_hand_card_query.iter().count() < 7
     {
-        if let Card(CardType::Good(_)) = market_selected_card_query.iter().next().unwrap() {
-            *move_validity_state = MoveValidity::Valid;
-            return;
-        }
+        *move_validity_state = MoveValidity::Valid;
+        return;
     }
 
     // Take all camels from market rule
