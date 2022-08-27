@@ -17,6 +17,7 @@ use std::time::Duration;
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 use crate::label::Label;
+use crate::resources::{MoveValidity, SelectedCardState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -232,15 +233,24 @@ impl Tokens {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_when_resources_ready(
     mut state: ResMut<State<AppState>>,
     deck: Option<Res<Deck>>,
     market: Option<Res<Market>>,
     tokens: Option<Res<Tokens>>,
     tween_state: Option<Res<TweenState>>,
+    timer: Option<Res<ScreenTransitionDelayTimer>>,
+    selected_card_state: Option<Res<SelectedCardState>>,
+    move_validity: Option<Res<MoveValidity>>,
 ) {
-    let resources_are_ready =
-        deck.is_some() && market.is_some() && tokens.is_some() && tween_state.is_some();
+    let resources_are_ready = deck.is_some()
+        && market.is_some()
+        && tokens.is_some()
+        && tween_state.is_some()
+        && timer.is_some()
+        && selected_card_state.is_some()
+        && move_validity.is_some();
 
     if resources_are_ready {
         state.set(AppState::TurnTransition).unwrap();
@@ -762,6 +772,8 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
+            .init_resource::<SelectedCardState>()
+            .init_resource::<MoveValidity>()
             .add_plugin(InteractionPlugin)
             .add_plugin(ShapePlugin)
             .add_plugin(TweeningPlugin)
@@ -816,6 +828,7 @@ impl Plugin for GamePlugin {
                             .after(Label::EventWriter),
                     ),
             )
+            // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
             .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_removed);
     }
 }
@@ -848,6 +861,7 @@ fn update_card_as_clicked(
 
 fn update_card_as_selected(
     mut commands: Commands,
+    mut selected_card_state: ResMut<SelectedCardState>,
     clicked_card_query: Query<(Entity, &Interactable), (Added<ClickedCard>, Without<SelectedCard>)>,
 ) {
     for (clicked_card_entity, interactable) in clicked_card_query.iter() {
@@ -876,17 +890,29 @@ fn update_card_as_selected(
             .insert(SelectedCard)
             .remove::<ClickedCard>()
             .add_child(card_outline_entity);
+
+        println!("ADD SELECTED CARD");
+        selected_card_state.0.push(clicked_card_entity);
     }
 }
 
 fn update_card_as_unselected(
     mut commands: Commands,
+    mut selected_card_state: ResMut<SelectedCardState>,
     clicked_card_query: Query<Entity, (Added<ClickedCard>, With<SelectedCard>)>,
 ) {
     for clicked_card_entity in clicked_card_query.iter() {
         commands
             .entity(clicked_card_entity)
             .remove::<SelectedCard>();
+
+        let idx = selected_card_state
+            .0
+            .iter()
+            .position(|e| *e == clicked_card_entity)
+            .unwrap();
+        println!("REMOVE SELECTED CARD");
+        selected_card_state.0.remove(idx);
     }
 }
 

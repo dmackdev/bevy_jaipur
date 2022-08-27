@@ -5,7 +5,11 @@ use itertools::Itertools;
 
 use crate::{
     event::ConfirmTurnEvent,
+    game::{
+        ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, MarketCard, SelectedCard,
+    },
     label::Label,
+    resources::{MoveValidity, SelectedCardState},
     states::{AppState, TurnState},
 };
 
@@ -45,22 +49,23 @@ struct ConfirmGameButton;
 const TAKE_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Take,
     normal_color: Color::rgb(0.15, 0.15, 0.15),
-    hovered_color: Color::rgb(0.25, 0.25, 0.25),
-    pressed_color: Color::rgb(0.35, 0.75, 0.35),
+    hovered_color: Color::GRAY,
+    pressed_color: Color::BLUE,
 };
 
 const SELL_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Sell,
     normal_color: Color::rgb(0.15, 0.15, 0.15),
-    hovered_color: Color::rgb(0.25, 0.25, 0.25),
-    pressed_color: Color::rgb(0.35, 0.75, 0.35),
+    hovered_color: Color::GRAY,
+    pressed_color: Color::BLUE,
 };
 
+// Colors only apply when move is valid and confirm button is enabled
 const CONFIRM_BUTTON_DATA: GameButtonData = GameButtonData {
     kind: GameButtonKind::Confirm,
-    normal_color: Color::rgb(0.15, 0.15, 0.15),
-    hovered_color: Color::rgb(0.25, 0.25, 0.25),
-    pressed_color: Color::rgb(0.35, 0.75, 0.35),
+    normal_color: Color::DARK_GREEN,
+    hovered_color: Color::rgba(0.0, 1.0, 0.0, 0.5),
+    pressed_color: Color::DARK_GREEN,
 };
 
 fn create_button<C: Component>(
@@ -114,7 +119,7 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position: UiRect::new(Val::Auto, Val::Px(50.0), Val::Auto, Val::Px(50.0)),
                 ..default()
             },
-            color: Color::BLUE.into(),
+            color: Color::DARK_GRAY.into(),
             transform: Transform::default().with_translation(Vec3::new(300.0, 0.0, 0.0)),
             ..default()
         })
@@ -220,6 +225,7 @@ fn handle_confirm_button_interaction(
     mut commands: Commands,
     mut turn_state: ResMut<State<TurnState>>,
     mut ev_confirm_turn: EventWriter<ConfirmTurnEvent>,
+    move_validity_state: Res<MoveValidity>,
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, &GameButton),
         (Changed<Interaction>, With<ConfirmGameButton>),
@@ -227,6 +233,10 @@ fn handle_confirm_button_interaction(
     ui_root_query: Query<Entity, With<GameUiRoot>>,
 ) {
     for (interaction, mut color, game_button) in &mut interaction_query {
+        if *move_validity_state.as_ref() == MoveValidity::Invalid {
+            return;
+        }
+
         match *interaction {
             Interaction::Clicked => {
                 *color = game_button.0.pressed_color.into();
@@ -249,6 +259,47 @@ fn handle_confirm_button_interaction(
     }
 }
 
+// TODO: extract to game_logic
+fn handle_selected_card_state_change(
+    selected_card_state: Res<SelectedCardState>,
+    mut move_validity_state: ResMut<MoveValidity>,
+    market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
+    camel_hand_selected_card_query: Query<&Card, (With<ActivePlayerCamelCard>, With<SelectedCard>)>,
+    goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
+) {
+    if !selected_card_state.is_changed() {
+        return;
+    }
+
+    println!("SELECTED CARD STATE CHANGE {}", selected_card_state.0.len());
+    if market_selected_card_query.iter().count() == 1 {
+        if let Card(CardType::Good(_)) = market_selected_card_query.iter().next().unwrap() {
+            println!("VALID");
+            *move_validity_state = MoveValidity::Valid;
+            return;
+        }
+    }
+
+    println!("INVALID");
+    *move_validity_state = MoveValidity::Invalid;
+}
+
+fn handle_move_validity_change(
+    move_validity_state: Res<MoveValidity>,
+    mut confirm_button_query: Query<(&mut UiColor, &GameButton), With<ConfirmGameButton>>,
+) {
+    if !move_validity_state.is_changed() {
+        return;
+    }
+
+    let (mut confirm_button_color, game_button) = confirm_button_query.single_mut();
+
+    match move_validity_state.as_ref() {
+        MoveValidity::Invalid => *confirm_button_color = Color::RED.into(),
+        MoveValidity::Valid => *confirm_button_color = game_button.0.normal_color.into(),
+    }
+}
+
 pub struct GameUiPlugin;
 
 impl Plugin for GameUiPlugin {
@@ -264,7 +315,9 @@ impl Plugin for GameUiPlugin {
                         handle_confirm_button_interaction
                             .label(Label::EventWriter)
                             .before(Label::EventReader),
-                    ),
-            );
+                    )
+                    .with_system(handle_move_validity_change),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_state_change);
     }
 }

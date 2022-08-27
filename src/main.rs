@@ -4,6 +4,7 @@ mod game;
 mod game_ui;
 mod label;
 mod main_menu;
+mod resources;
 mod states;
 
 use bevy::prelude::*;
