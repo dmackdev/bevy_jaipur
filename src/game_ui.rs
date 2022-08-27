@@ -331,7 +331,7 @@ fn handle_selected_card_state_change(
         && num_selected_market_goods_cards
             == num_selected_camels_from_hand + num_selected_goods_from_hand
         && num_selected_market_goods_cards + num_total_goods_in_hand - num_selected_goods_from_hand
-            < 7
+            <= 7
     {
         println!("EXCHANGE");
         *move_validity_state = MoveValidity::Valid;
