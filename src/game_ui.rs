@@ -370,6 +370,7 @@ impl Plugin for GameUiPlugin {
                     )
                     .with_system(handle_move_validity_change),
             )
+            // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
             .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_state_change);
     }
 }
