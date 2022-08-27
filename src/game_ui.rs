@@ -387,6 +387,15 @@ fn handle_selected_card_state_change_for_sell(
     *move_validity_state = MoveValidity::Invalid;
 }
 
+fn handle_no_turn_state_selected(
+    turn_state: Res<State<TurnState>>,
+    mut move_validity_state: ResMut<MoveValidity>,
+) {
+    if turn_state.is_changed() && *turn_state.current() == TurnState::None {
+        *move_validity_state = MoveValidity::Invalid;
+    }
+}
+
 fn handle_move_validity_change(
     move_validity_state: Res<MoveValidity>,
     mut confirm_button_query: Query<(&mut UiColor, &GameButton), With<ConfirmGameButton>>,
@@ -429,6 +438,12 @@ impl Plugin for GameUiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 handle_selected_card_state_change_for_sell,
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                handle_no_turn_state_selected
+                    .after(handle_selected_card_state_change_for_take)
+                    .after(handle_selected_card_state_change_for_sell),
             );
     }
 }
