@@ -317,12 +317,13 @@ fn handle_selected_card_state_change(
     }
 
     // Exchange at least two goods from the market with combination of camels and goods from player's hand
-    if num_selected_market_goods_cards < 2 {
-        *move_validity_state = MoveValidity::Invalid;
-        return;
-    }
+    let num_selected_camels_from_market = market_selected_card_query
+        .iter()
+        .filter(|c| matches!(c.0, CardType::Camel))
+        .count();
 
-    if num_selected_market_goods_cards > 1
+    if num_selected_camels_from_market == 0
+        && num_selected_market_goods_cards > 1
         && num_selected_market_goods_cards
             == num_selected_camels_from_hand + num_selected_goods_from_hand
         && num_selected_market_goods_cards + num_total_goods_in_hand - num_selected_goods_from_hand
