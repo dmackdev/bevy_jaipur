@@ -1,12 +1,9 @@
 use bevy::prelude::*;
-use bevy::render::render_resource::Texture;
 use bevy_interact_2d::*;
 use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, ShapePlugin, StrokeMode};
 use bevy_prototype_lyon::shapes::Polygon;
 use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{
-    Animator, Delay, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType,
-};
+use bevy_tweening::{Animator, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType};
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -55,6 +52,10 @@ impl GoodType {
             GoodType::Spice => "textures/card/spice.png".to_string(),
             GoodType::Leather => "textures/card/leather.png".to_string(),
         }
+    }
+
+    pub fn is_high_value(&self) -> bool {
+        matches!(self, GoodType::Diamond | GoodType::Gold | GoodType::Silver)
     }
 }
 
@@ -759,6 +760,28 @@ fn setup_for_take_action(
         )>,
     >,
 ) {
+    // TODO: remove other Interactables, only add to cards that can be interacted with for Take
+
+    for entity in query.iter() {
+        commands.entity(entity).insert(Interactable {
+            groups: vec![Group(0)],
+            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
+        });
+    }
+}
+
+fn setup_for_sell_action(
+    mut commands: Commands,
+    query: Query<
+        Entity,
+        Or<(
+            With<MarketCard>,
+            With<ActivePlayerGoodsCard>,
+            With<ActivePlayerCamelCard>,
+        )>,
+    >,
+) {
+    // TODO: remove other Interactables, only add to cards that can be interacted with for Sell
     for entity in query.iter() {
         commands.entity(entity).insert(Interactable {
             groups: vec![Group(0)],
@@ -817,8 +840,9 @@ impl Plugin for GamePlugin {
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
+            .add_system_set(SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action))
             .add_system_set(
-                SystemSet::on_update(TurnState::Take)
+                SystemSet::on_update(AppState::InGame)
                     .with_system(update_card_as_clicked)
                     .with_system(update_card_as_selected.after(update_card_as_clicked))
                     .with_system(update_card_as_unselected.after(update_card_as_clicked))

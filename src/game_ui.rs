@@ -6,7 +6,8 @@ use itertools::Itertools;
 use crate::{
     event::ConfirmTurnEvent,
     game::{
-        ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, MarketCard, SelectedCard,
+        ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard,
+        SelectedCard,
     },
     label::Label,
     resources::{MoveValidity, SelectedCardState},
@@ -264,7 +265,9 @@ fn handle_confirm_button_interaction(
 }
 
 // TODO: extract to game_logic
-fn handle_selected_card_state_change(
+#[allow(clippy::too_many_arguments)]
+fn handle_selected_card_state_change_for_take(
+    turn_state: Res<State<TurnState>>,
     selected_card_state: Res<SelectedCardState>,
     mut move_validity_state: ResMut<MoveValidity>,
     market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
@@ -273,7 +276,7 @@ fn handle_selected_card_state_change(
     goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
     all_goods_hand_card_query: Query<&Card, With<ActivePlayerGoodsCard>>,
 ) {
-    if !selected_card_state.is_changed() {
+    if *turn_state.current() != TurnState::Take || !selected_card_state.is_changed() {
         return;
     }
 
@@ -341,6 +344,49 @@ fn handle_selected_card_state_change(
     *move_validity_state = MoveValidity::Invalid;
 }
 
+// TODO: extract to game_logic
+fn handle_selected_card_state_change_for_sell(
+    turn_state: Res<State<TurnState>>,
+    selected_card_state: Res<SelectedCardState>,
+    mut move_validity_state: ResMut<MoveValidity>,
+    goods_hand_selected_card_query: Query<&Card, (With<ActivePlayerGoodsCard>, With<SelectedCard>)>,
+    camel_hand_selected_card_query: Query<&Card, (With<ActivePlayerCamelCard>, With<SelectedCard>)>,
+    market_selected_card_query: Query<&Card, (With<MarketCard>, With<SelectedCard>)>,
+) {
+    if *turn_state.current() != TurnState::Sell || !selected_card_state.is_changed() {
+        return;
+    }
+
+    let num_selected_goods_from_hand = goods_hand_selected_card_query.iter().count();
+    let num_selected_camels_from_hand = camel_hand_selected_card_query.iter().count();
+    let num_selected_cards_from_market = market_selected_card_query.iter().count();
+
+    if num_selected_goods_from_hand > 0
+        && num_selected_camels_from_hand == 0
+        && num_selected_cards_from_market == 0
+    {
+        let selected_goods_types: Vec<GoodType> = goods_hand_selected_card_query
+            .iter()
+            .filter_map(|c| match c.0 {
+                CardType::Camel => None,
+                CardType::Good(g) => Some(g),
+            })
+            .collect();
+        let are_all_goods_the_same = selected_goods_types.windows(2).all(|w| w[0] == w[1]);
+
+        if are_all_goods_the_same {
+            let good_type = selected_goods_types[0];
+
+            if !good_type.is_high_value() || num_selected_goods_from_hand > 1 {
+                *move_validity_state = MoveValidity::Valid;
+                return;
+            }
+        }
+    }
+
+    *move_validity_state = MoveValidity::Invalid;
+}
+
 fn handle_move_validity_change(
     move_validity_state: Res<MoveValidity>,
     mut confirm_button_query: Query<(&mut UiColor, &GameButton), With<ConfirmGameButton>>,
@@ -376,6 +422,13 @@ impl Plugin for GameUiPlugin {
                     .with_system(handle_move_validity_change),
             )
             // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
-            .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_state_change);
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                handle_selected_card_state_change_for_take,
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                handle_selected_card_state_change_for_sell,
+            );
     }
 }
