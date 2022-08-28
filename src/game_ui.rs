@@ -78,7 +78,7 @@ fn create_button<C: Component>(
     commands
         .spawn_bundle(ButtonBundle {
             style: Style {
-                size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+                size: Size::new(Val::Px(150.0), Val::Px(45.0)),
                 // center button
                 margin: UiRect::all(Val::Px(10.0)),
                 // horizontally center child text
@@ -97,7 +97,7 @@ fn create_button<C: Component>(
                 game_button_data.kind.to_string(),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
+                    font_size: 20.0,
                     color: Color::rgb(0.9, 0.9, 0.9),
                 },
             ));
@@ -114,10 +114,10 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 position_type: PositionType::Absolute,
                 margin: UiRect::all(Val::Auto),
-                flex_direction: FlexDirection::Row,
+                flex_direction: FlexDirection::ColumnReverse,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                position: UiRect::new(Val::Auto, Val::Px(50.0), Val::Auto, Val::Px(50.0)),
+                position: UiRect::new(Val::Auto, Val::Px(0.0), Val::Auto, Val::Px(0.0)),
                 ..default()
             },
             color: Color::DARK_GRAY.into(),
