@@ -73,10 +73,10 @@ pub struct Card(pub CardType);
 pub struct MarketCard(usize);
 
 #[derive(Component)]
-pub struct ActivePlayerGoodsCard;
+pub struct ActivePlayerGoodsCard(usize);
 
 #[derive(Component)]
-pub struct ActivePlayerCamelCard;
+pub struct ActivePlayerCamelCard(usize);
 
 #[derive(Component)]
 pub struct SelectedCard;
@@ -472,7 +472,7 @@ fn setup_game_screen(
                 ..default()
             })
             .insert(Card(CardType::Good(*good)))
-            .insert(ActivePlayerGoodsCard)
+            .insert(ActivePlayerGoodsCard(idx))
             .id();
 
         commands
@@ -490,7 +490,7 @@ fn setup_game_screen(
                 ..default()
             })
             .insert(Card(CardType::Camel))
-            .insert(ActivePlayerCamelCard)
+            .insert(ActivePlayerCamelCard(idx))
             .id();
 
         commands
@@ -678,7 +678,7 @@ fn handle_take_single_good_move_confirmed(
             .entity(card_entity)
             .insert(Animator::new(tween))
             .remove::<MarketCard>()
-            .insert(ActivePlayerGoodsCard);
+            .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
 
         // Replace with card from deck
         let replacement_card = deck.cards.pop().unwrap();
@@ -759,7 +759,7 @@ fn handle_take_all_camels_move_confirmed(
                 .entity(card_entity)
                 .insert(Animator::new(tween))
                 .remove::<MarketCard>()
-                .insert(ActivePlayerCamelCard);
+                .insert(ActivePlayerCamelCard(active_player_camel_hand.0 - 1));
 
             // Replace with card from deck
             let replacement_card = deck.cards.pop().unwrap();
@@ -796,6 +796,139 @@ fn handle_take_all_camels_move_confirmed(
                 .insert(Animator::new(second_tween))
                 .remove::<DeckCard>()
                 .insert(MarketCard(market_card.0));
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_exchange_goods_move_confirmed(
+    mut commands: Commands,
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    mut market: ResMut<Market>,
+    mut active_player_query: Query<(&mut GoodsHandOwner, &mut CamelsHandOwner), With<ActivePlayer>>,
+    active_player_selected_camel_cards: Query<
+        (Entity, &Transform),
+        (With<ActivePlayerCamelCard>, With<SelectedCard>),
+    >,
+    active_player_selected_goods_card: Query<
+        (Entity, &ActivePlayerGoodsCard, &Transform),
+        With<SelectedCard>,
+    >,
+    selected_market_goods_cards_query: Query<(Entity, &MarketCard, &Transform), With<SelectedCard>>,
+    mut tween_state: ResMut<TweenState>,
+) {
+    for _ev in ev_confirm_turn
+        .iter()
+        .filter(|ev| matches!(ev.0, MoveType::ExchangeForGoodsFromMarket))
+    {
+        let (mut goods_hand_owner, mut camels_hand_owner) = active_player_query.single_mut();
+
+        // num player's selected goods <= selected market goods, since camels may fill the remainder
+        for (player_good, market_good) in active_player_selected_goods_card
+            .iter()
+            .zip(selected_market_goods_cards_query.iter())
+        {
+            let good_type_removed_from_hand = goods_hand_owner.0.remove(player_good.1 .0);
+            let good_type_removed_from_market = market.cards.remove(market_good.1 .0);
+
+            goods_hand_owner.0.insert(
+                player_good.1 .0,
+                good_type_removed_from_market.into_good_type(),
+            );
+            market.cards.insert(
+                market_good.1 .0,
+                CardType::Good(good_type_removed_from_hand),
+            );
+
+            let tween_hand_to_market = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: player_good.2.translation,
+                    end: get_market_card_translation(market_good.1 .0),
+                },
+            )
+            .with_completed_event(1);
+
+            tween_state.tweening_entities.push(player_good.0);
+
+            commands
+                .entity(player_good.0)
+                .insert(Animator::new(tween_hand_to_market))
+                .remove::<ActivePlayerGoodsCard>()
+                .insert(MarketCard(market_good.1 .0));
+
+            let tween_market_to_hand = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: market_good.2.translation,
+                    end: get_active_player_goods_card_translation(player_good.1 .0),
+                },
+            )
+            .with_completed_event(2);
+
+            tween_state.tweening_entities.push(market_good.0);
+
+            commands
+                .entity(market_good.0)
+                .insert(Animator::new(tween_market_to_hand))
+                .remove::<MarketCard>()
+                .insert(ActivePlayerGoodsCard(player_good.1 .0));
+        }
+
+        for (camel, market_good) in active_player_selected_camel_cards.iter().zip(
+            selected_market_goods_cards_query
+                .iter()
+                .skip(active_player_selected_goods_card.iter().count()),
+        ) {
+            camels_hand_owner.0 -= 1;
+            let good_type_removed_from_market = market.cards.remove(market_good.1 .0);
+
+            goods_hand_owner
+                .0
+                .push(good_type_removed_from_market.into_good_type());
+            market.cards.insert(market_good.1 .0, CardType::Camel);
+
+            let tween_camel_to_market = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: camel.1.translation,
+                    end: get_market_card_translation(market_good.1 .0),
+                },
+            )
+            .with_completed_event(3);
+
+            tween_state.tweening_entities.push(camel.0);
+
+            commands
+                .entity(camel.0)
+                .insert(Animator::new(tween_camel_to_market))
+                .remove::<ActivePlayerCamelCard>()
+                .insert(MarketCard(market_good.1 .0));
+
+            let tween_market_to_hand = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: market_good.2.translation,
+                    end: get_active_player_goods_card_translation(goods_hand_owner.0.len() - 1),
+                },
+            )
+            .with_completed_event(4);
+
+            tween_state.tweening_entities.push(market_good.0);
+
+            commands
+                .entity(market_good.0)
+                .insert(Animator::new(tween_market_to_hand))
+                .remove::<MarketCard>()
+                .insert(ActivePlayerGoodsCard(goods_hand_owner.0.len() - 1));
         }
     }
 }
@@ -911,6 +1044,12 @@ impl Plugin for GamePlugin {
                     )
                     .with_system(
                         handle_take_all_camels_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_exchange_goods_move_confirmed
                             .label(Label::EventReader)
                             .before(handle_confirm_turn_event)
                             .after(Label::EventWriter),
