@@ -331,6 +331,7 @@ fn handle_selected_card_state_change_for_take(
         return;
     }
 
+    // TODO: Add logic to prevent exchanging the same kind of good
     // Exchange at least two goods from the market with combination of camels and goods from player's hand
     let num_selected_camels_from_market = market_selected_card_query
         .iter()
