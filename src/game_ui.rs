@@ -121,7 +121,6 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             color: Color::DARK_GRAY.into(),
-            transform: Transform::default().with_translation(Vec3::new(300.0, 0.0, 0.0)),
             ..default()
         })
         .insert(GameUiRoot)
