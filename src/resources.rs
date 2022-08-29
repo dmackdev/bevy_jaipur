@@ -7,5 +7,13 @@ pub struct SelectedCardState(pub Vec<Entity>);
 pub enum MoveValidity {
     #[default]
     Invalid,
-    Valid,
+    Valid(MoveType),
+}
+
+#[derive(Eq, PartialEq)]
+pub enum MoveType {
+    TakeSingleGood,
+    TakeAllCamels,
+    ExchangeForGoodsFromMarket,
+    SellGoods,
 }

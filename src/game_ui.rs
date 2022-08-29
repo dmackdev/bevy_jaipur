@@ -10,7 +10,7 @@ use crate::{
         SelectedCard,
     },
     label::Label,
-    resources::{MoveValidity, SelectedCardState},
+    resources::{MoveType, MoveValidity, SelectedCardState},
     states::{AppState, TurnState},
 };
 
@@ -303,7 +303,7 @@ fn handle_selected_card_state_change_for_take(
         && num_total_goods_in_hand < 7
     {
         println!("TAKE SINGLE GOOD");
-        *move_validity_state = MoveValidity::Valid;
+        *move_validity_state = MoveValidity::Valid(MoveType::TakeSingleGood);
         return;
     }
 
@@ -321,7 +321,7 @@ fn handle_selected_card_state_change_for_take(
         && goods_hand_selected_card_query.iter().count() == 0
     {
         println!("TAKE ALL CAMELS");
-        *move_validity_state = MoveValidity::Valid;
+        *move_validity_state = MoveValidity::Valid(MoveType::TakeAllCamels);
         return;
     }
 
@@ -339,7 +339,7 @@ fn handle_selected_card_state_change_for_take(
             <= 7
     {
         println!("EXCHANGE");
-        *move_validity_state = MoveValidity::Valid;
+        *move_validity_state = MoveValidity::Valid(MoveType::ExchangeForGoodsFromMarket);
         return;
     }
 
@@ -382,7 +382,7 @@ fn handle_selected_card_state_change_for_sell(
             let good_type = selected_goods_types[0];
 
             if !good_type.is_high_value() || num_selected_goods_from_hand > 1 {
-                *move_validity_state = MoveValidity::Valid;
+                *move_validity_state = MoveValidity::Valid(MoveType::SellGoods);
                 return;
             }
         }
@@ -412,7 +412,7 @@ fn handle_move_validity_change(
 
     match move_validity_state.as_ref() {
         MoveValidity::Invalid => *confirm_button_color = Color::RED.into(),
-        MoveValidity::Valid => *confirm_button_color = game_button.0.normal_color.into(),
+        MoveValidity::Valid(_) => *confirm_button_color = game_button.0.normal_color.into(),
     }
 }
 
