@@ -195,6 +195,31 @@ fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, token
         v.push(t);
     });
 
+    tokens.bonus.iter().for_each(|(bonus_type, token_values)| {
+        let t = commands
+            .spawn_bundle(
+                TextBundle::from_section(
+                    format!(
+                        "{:?} bonus tokens remaining: {:?}",
+                        bonus_type,
+                        token_values.len()
+                    ),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 20.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.)),
+                    ..default()
+                }),
+            )
+            .id();
+
+        v.push(t);
+    });
+
     commands.entity(root_node_entity).push_children(&v);
 }
 
