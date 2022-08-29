@@ -14,7 +14,7 @@ use std::time::Duration;
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 use crate::label::Label;
-use crate::resources::{MoveType, MoveValidity, SelectedCardState};
+use crate::resources::{DiscardPile, MoveType, MoveValidity, SelectedCardState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -251,6 +251,7 @@ fn handle_when_resources_ready(
     timer: Option<Res<ScreenTransitionDelayTimer>>,
     selected_card_state: Option<Res<SelectedCardState>>,
     move_validity: Option<Res<MoveValidity>>,
+    discard_pile: Option<Res<DiscardPile>>,
 ) {
     let resources_are_ready = deck.is_some()
         && market.is_some()
@@ -258,7 +259,8 @@ fn handle_when_resources_ready(
         && tween_state.is_some()
         && timer.is_some()
         && selected_card_state.is_some()
-        && move_validity.is_some();
+        && move_validity.is_some()
+        && discard_pile.is_some();
 
     if resources_are_ready {
         state.set(AppState::TurnTransition).unwrap();
@@ -361,6 +363,11 @@ fn handle_turn_transition_screen_interaction(
 }
 
 const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
+const DISCARD_PILE_POS: Vec3 = Vec3::new(
+    DECK_START_POS.x + 1.5 * CARD_DIMENSION.x + CARD_PADDING,
+    DECK_START_POS.y,
+    0.,
+);
 const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
 const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
 const CAMEL_HAND_START_POS: Vec3 = Vec3::new(
@@ -407,6 +414,7 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(deck);
     commands.insert_resource(market);
     commands.insert_resource(tokens);
+    commands.init_resource::<DiscardPile>();
     commands.init_resource::<TweenState>();
 }
 
@@ -421,6 +429,7 @@ fn setup_game_screen(
     asset_server: Res<AssetServer>,
     deck: Res<Deck>,
     market: Res<Market>,
+    discard_pile: Res<DiscardPile>,
     active_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), With<ActivePlayer>>,
     inactive_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), Without<ActivePlayer>>,
 ) {
@@ -458,6 +467,21 @@ fn setup_game_screen(
             .id();
 
         commands.entity(game_root_entity).add_child(market_entity);
+    }
+
+    // Render discard pile - only last card need be shown
+    if let Some(card_type) = discard_pile.cards.last() {
+        let discard_pile_entity = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load(&card_type.get_card_texture()),
+                transform: Transform::default().with_translation(DISCARD_PILE_POS),
+                ..default()
+            })
+            .id();
+
+        commands
+            .entity(game_root_entity)
+            .add_child(discard_pile_entity);
     }
 
     let (active_player_goods_hand, active_player_camels_hand) = active_player_query.single();
@@ -933,6 +957,51 @@ fn handle_exchange_goods_move_confirmed(
     }
 }
 
+fn handle_sell_goods_move_confirmed(
+    mut commands: Commands,
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    mut discard_pile: ResMut<DiscardPile>,
+    mut tween_state: ResMut<TweenState>,
+    active_player_selected_goods_card: Query<
+        (Entity, &ActivePlayerGoodsCard, &Transform),
+        With<SelectedCard>,
+    >,
+    mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
+) {
+    for _ev in ev_confirm_turn
+        .iter()
+        .filter(|ev| matches!(ev.0, MoveType::SellGoods))
+    {
+        let mut goods_hand_owner = active_player_query.single_mut();
+
+        for (e, active_player_goods_card, transform) in active_player_selected_goods_card.iter() {
+            let sold_card = goods_hand_owner.0.remove(active_player_goods_card.0);
+
+            discard_pile.cards.push(CardType::Good(sold_card));
+
+            let tween_goods_hand_to_discard_pile = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: transform.translation,
+                    end: DISCARD_PILE_POS,
+                },
+            )
+            .with_completed_event(4);
+
+            tween_state.tweening_entities.push(e);
+
+            commands
+                .entity(e)
+                .insert(Animator::new(tween_goods_hand_to_discard_pile))
+                .remove::<ActivePlayerGoodsCard>();
+
+            // TODO: Award bonus
+        }
+    }
+}
+
 fn handle_confirm_turn_event(
     mut commands: Commands,
     mut state: ResMut<State<AppState>>,
@@ -1050,6 +1119,12 @@ impl Plugin for GamePlugin {
                     )
                     .with_system(
                         handle_exchange_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_sell_goods_move_confirmed
                             .label(Label::EventReader)
                             .before(handle_confirm_turn_event)
                             .after(Label::EventWriter),

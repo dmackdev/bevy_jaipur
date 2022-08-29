@@ -1,5 +1,7 @@
 use bevy::prelude::Entity;
 
+use crate::game::CardType;
+
 #[derive(Default)]
 pub struct SelectedCardState(pub Vec<Entity>);
 
@@ -16,4 +18,9 @@ pub enum MoveType {
     TakeAllCamels,
     ExchangeForGoodsFromMarket,
     SellGoods,
+}
+
+#[derive(Default)]
+pub struct DiscardPile {
+    pub cards: Vec<CardType>,
 }
