@@ -331,14 +331,30 @@ fn handle_selected_card_state_change_for_take(
         return;
     }
 
-    // TODO: Add logic to prevent exchanging the same kind of good
     // Exchange at least two goods from the market with combination of camels and goods from player's hand
+    let do_market_goods_set_and_hand_goods_set_intersect = market_selected_card_query
+        .iter()
+        .filter_map(|c| match c.0 {
+            CardType::Camel => None,
+            CardType::Good(g) => Some(g),
+        })
+        .any(|g| {
+            goods_hand_selected_card_query
+                .iter()
+                .filter_map(|c| match c.0 {
+                    CardType::Camel => None,
+                    CardType::Good(g) => Some(g),
+                })
+                .contains(&g)
+        });
+
     let num_selected_camels_from_market = market_selected_card_query
         .iter()
         .filter(|c| matches!(c.0, CardType::Camel))
         .count();
 
-    if num_selected_camels_from_market == 0
+    if !do_market_goods_set_and_hand_goods_set_intersect
+        && num_selected_camels_from_market == 0
         && num_selected_market_goods_cards > 1
         && num_selected_market_goods_cards
             == num_selected_camels_from_hand + num_selected_goods_from_hand
