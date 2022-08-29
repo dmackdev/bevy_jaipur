@@ -10,7 +10,7 @@ pub enum MoveValidity {
     Valid(MoveType),
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum MoveType {
     TakeSingleGood,
     TakeAllCamels,

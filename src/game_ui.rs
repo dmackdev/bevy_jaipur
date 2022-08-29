@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, ops::DerefMut};
 
 use bevy::prelude::*;
 use itertools::Itertools;
@@ -239,6 +239,11 @@ fn handle_confirm_button_interaction(
             return;
         }
 
+        let move_type = match move_validity_state.deref_mut() {
+            MoveValidity::Invalid => return,
+            MoveValidity::Valid(m) => m,
+        };
+
         match *interaction {
             Interaction::Clicked => {
                 *color = game_button.0.pressed_color.into();
@@ -249,9 +254,10 @@ fn handle_confirm_button_interaction(
                 }
 
                 selected_card_state.0.clear();
+
+                ev_confirm_turn.send(ConfirmTurnEvent(*move_type));
                 *move_validity_state = MoveValidity::default();
 
-                ev_confirm_turn.send(ConfirmTurnEvent);
                 commands.entity(ui_root_query.single()).despawn_recursive();
             }
             Interaction::Hovered => {

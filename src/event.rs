@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-pub struct ConfirmTurnEvent;
+use crate::resources::MoveType;
+
+pub struct ConfirmTurnEvent(pub MoveType);
 
 pub struct EventsPlugin;
 

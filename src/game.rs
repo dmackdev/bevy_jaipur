@@ -14,7 +14,7 @@ use std::time::Duration;
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 use crate::label::Label;
-use crate::resources::{MoveValidity, SelectedCardState};
+use crate::resources::{MoveType, MoveValidity, SelectedCardState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -28,6 +28,13 @@ impl CardType {
         match self {
             CardType::Camel => "textures/card/camel.png".to_string(),
             CardType::Good(good) => good.get_card_texture(),
+        }
+    }
+
+    fn into_good_type(&self) -> GoodType {
+        match self {
+            CardType::Camel => panic!(),
+            CardType::Good(gt) => *gt,
         }
     }
 }
@@ -624,7 +631,7 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn update_cards_for_confirm_turn_event(
+fn handle_take_single_good_move_confirmed(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
@@ -638,81 +645,74 @@ fn update_cards_for_confirm_turn_event(
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
 ) {
-    for _ev in ev_confirm_turn.iter() {
-        if selected_market_cards_query.iter().count() != 1 {
-            return;
-        }
-
+    for _ev in ev_confirm_turn
+        .iter()
+        .filter(|ev| matches!(ev.0, MoveType::TakeSingleGood))
+    {
         let mut active_player_goods_hand = active_player_query.single_mut();
 
-        // Handling taking single card only for now
         let (card_entity, card, market_card, transform) = selected_market_cards_query.single();
 
-        match card.0 {
-            CardType::Camel => todo!(),
-            CardType::Good(good) => {
-                // Remove from market resource
-                market.cards.remove(market_card.0);
+        let good = card.0.into_good_type();
 
-                // add to active player goods hand
-                active_player_goods_hand.0.push(good);
+        // Remove from market resource
+        market.cards.remove(market_card.0);
 
-                let tween = Tween::new(
-                    EaseFunction::QuadraticInOut,
-                    TweeningType::Once,
-                    Duration::from_secs(2),
-                    TransformPositionLens {
-                        start: transform.translation,
-                        end: get_active_player_goods_card_translation(
-                            active_player_goods_hand.0.len() - 1,
-                        ),
-                    },
-                )
-                .with_completed_event(1);
+        // add to active player goods hand
+        active_player_goods_hand.0.push(good);
 
-                tween_state.tweening_entities.push(card_entity);
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            TweeningType::Once,
+            Duration::from_secs(2),
+            TransformPositionLens {
+                start: transform.translation,
+                end: get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1),
+            },
+        )
+        .with_completed_event(1);
 
-                commands
-                    .entity(card_entity)
-                    .insert(Animator::new(tween))
-                    .remove::<MarketCard>()
-                    .insert(ActivePlayerGoodsCard);
+        tween_state.tweening_entities.push(card_entity);
 
-                // Replace with card from deck
-                let replacement_card = deck.cards.pop().unwrap();
-                market.cards.insert(market_card.0, replacement_card);
+        commands
+            .entity(card_entity)
+            .insert(Animator::new(tween))
+            .remove::<MarketCard>()
+            .insert(ActivePlayerGoodsCard);
 
-                // Get the top deck card - with the highest index
-                let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
-                    deck_cards_query
-                        .iter_mut()
-                        .max_by_key(|(_, dc, _, _, _)| dc.0)
-                        .unwrap();
+        // Replace with card from deck
+        let replacement_card = deck.cards.pop().unwrap();
+        market.cards.insert(market_card.0, replacement_card);
 
-                // Update the sprite to show the face
-                *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
+        // Get the top deck card - with the highest index
+        let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
+            deck_cards_query
+                .iter_mut()
+                .max_by_key(|(_, dc, _, _, _)| dc.0)
+                .unwrap();
 
-                // Tween to the market card position
-                let second_tween = Tween::new(
-                    EaseFunction::QuadraticInOut,
-                    TweeningType::Once,
-                    Duration::from_secs(2),
-                    TransformPositionLens {
-                        start: deck_card_transform.translation,
-                        end: get_market_card_translation(market_card.0),
-                    },
-                )
-                .with_completed_event(2);
+        // Update the sprite to show the face
+        *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
 
-                tween_state.tweening_entities.push(deck_card_entity);
+        // Tween to the market card position
+        let second_tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            TweeningType::Once,
+            Duration::from_secs(2),
+            TransformPositionLens {
+                start: deck_card_transform.translation,
+                end: get_market_card_translation(market_card.0),
+            },
+        )
+        .with_completed_event(2);
 
-                commands
-                    .entity(deck_card_entity)
-                    .insert(Animator::new(second_tween))
-                    .remove::<DeckCard>()
-                    .insert(MarketCard(market_card.0));
-            }
-        };
+        tween_state.tweening_entities.push(deck_card_entity);
+
+        commands
+            .entity(deck_card_entity)
+            .insert(Animator::new(second_tween))
+            .remove::<DeckCard>()
+            .insert(MarketCard(market_card.0));
     }
 }
 
@@ -820,7 +820,7 @@ impl Plugin for GamePlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(
-                        update_cards_for_confirm_turn_event
+                        handle_take_single_good_move_confirmed
                             .label(Label::EventReader)
                             .before(handle_confirm_turn_event)
                             .after(Label::EventWriter),
