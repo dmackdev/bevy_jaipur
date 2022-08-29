@@ -684,7 +684,6 @@ fn handle_take_single_good_move_confirmed(
         let replacement_card = deck.cards.pop().unwrap();
         market.cards.insert(market_card.0, replacement_card);
 
-        // Get the top deck card - with the highest index
         let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
             deck_cards_query
                 .iter_mut()
@@ -713,6 +712,91 @@ fn handle_take_single_good_move_confirmed(
             .insert(Animator::new(second_tween))
             .remove::<DeckCard>()
             .insert(MarketCard(market_card.0));
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_take_all_camels_move_confirmed(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+    mut deck: ResMut<Deck>,
+    mut market: ResMut<Market>,
+    selected_camel_market_cards_query: Query<(Entity, &MarketCard, &Transform), With<SelectedCard>>,
+    mut active_player_query: Query<&mut CamelsHandOwner, With<ActivePlayer>>,
+    mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
+    mut tween_state: ResMut<TweenState>,
+) {
+    for _ev in ev_confirm_turn
+        .iter()
+        .filter(|ev| matches!(ev.0, MoveType::TakeAllCamels))
+    {
+        let mut active_player_camel_hand = active_player_query.single_mut();
+
+        for (idx, (card_entity, market_card, transform)) in
+            selected_camel_market_cards_query.iter().enumerate()
+        {
+            // Remove from market resource
+            market.cards.remove(market_card.0);
+
+            // add to active player camel hand
+            active_player_camel_hand.0 += 1;
+
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: transform.translation,
+                    end: get_active_player_camel_card_translation(active_player_camel_hand.0 - 1),
+                },
+            )
+            .with_completed_event(1);
+
+            tween_state.tweening_entities.push(card_entity);
+
+            commands
+                .entity(card_entity)
+                .insert(Animator::new(tween))
+                .remove::<MarketCard>()
+                .insert(ActivePlayerCamelCard);
+
+            // Replace with card from deck
+            let replacement_card = deck.cards.pop().unwrap();
+            market.cards.insert(market_card.0, replacement_card);
+
+            let l = deck_cards_query.iter().len();
+            // Get the top deck card - with the highest index
+            let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
+                deck_cards_query
+                    .iter_mut()
+                    .sorted_by_key(|(_, dc, _, _, _)| dc.0)
+                    .nth(l - 1 - idx)
+                    .unwrap();
+
+            // Update the sprite to show the face
+            *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
+
+            // Tween to the market card position
+            let second_tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: deck_card_transform.translation,
+                    end: get_market_card_translation(market_card.0),
+                },
+            )
+            .with_completed_event(2);
+
+            tween_state.tweening_entities.push(deck_card_entity);
+
+            commands
+                .entity(deck_card_entity)
+                .insert(Animator::new(second_tween))
+                .remove::<DeckCard>()
+                .insert(MarketCard(market_card.0));
+        }
     }
 }
 
@@ -821,6 +905,12 @@ impl Plugin for GamePlugin {
                 SystemSet::on_update(AppState::InGame)
                     .with_system(
                         handle_take_single_good_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_take_all_camels_move_confirmed
                             .label(Label::EventReader)
                             .before(handle_confirm_turn_event)
                             .after(Label::EventWriter),
