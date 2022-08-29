@@ -7,7 +7,7 @@ use crate::{
     event::ConfirmTurnEvent,
     game::{
         ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard,
-        SelectedCard,
+        SelectedCard, Tokens,
     },
     label::Label,
     resources::{MoveType, MoveValidity, SelectedCardState},
@@ -153,6 +153,61 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[derive(Component)]
+struct GameTokensUiRoot;
+
+fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, tokens: Res<Tokens>) {
+    let root_node_entity = commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                margin: UiRect::all(Val::Auto),
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::Center,
+                position: UiRect::new(Val::Px(0.), Val::Auto, Val::Px(0.), Val::Px(0.)),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .insert(GameTokensUiRoot)
+        .id();
+
+    let mut v: Vec<Entity> = vec![];
+    tokens.goods.iter().for_each(|(good_type, token_values)| {
+        let t = commands
+            .spawn_bundle(
+                TextBundle::from_section(
+                    format!("{:?}: {:?}", good_type, token_values),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 20.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.)),
+                    ..default()
+                }),
+            )
+            .id();
+
+        v.push(t);
+    });
+
+    commands.entity(root_node_entity).push_children(&v);
+}
+
+fn cleanup_tokens_ui(
+    mut commands: Commands,
+    tokens_ui_query: Query<Entity, With<GameTokensUiRoot>>,
+) {
+    for e in tokens_ui_query.iter() {
+        commands.entity(e).despawn_recursive();
+    }
+}
+
+#[derive(Component)]
 struct JustClickedButton;
 
 fn handle_turn_state_button(
@@ -257,7 +312,9 @@ fn handle_confirm_button_interaction(
                 ev_confirm_turn.send(ConfirmTurnEvent(*move_type));
                 *move_validity_state = MoveValidity::default();
 
-                commands.entity(ui_root_query.single()).despawn_recursive();
+                for root_entity in ui_root_query.iter() {
+                    commands.entity(root_entity).despawn_recursive();
+                }
             }
             Interaction::Hovered => {
                 *color = game_button.0.hovered_color.into();
@@ -442,34 +499,41 @@ pub struct GameUiPlugin;
 
 impl Plugin for GameUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_ui))
-            .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .with_system(handle_turn_state_button)
-                    .with_system(
-                        update_unclicked_turn_move_button_colors.after(handle_turn_state_button),
-                    )
-                    .with_system(
-                        handle_confirm_button_interaction
-                            .label(Label::EventWriter)
-                            .before(Label::EventReader),
-                    )
-                    .with_system(handle_move_validity_change),
-            )
-            // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                handle_selected_card_state_change_for_take,
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                handle_selected_card_state_change_for_sell,
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                handle_no_turn_state_selected
-                    .after(handle_selected_card_state_change_for_take)
-                    .after(handle_selected_card_state_change_for_sell),
-            );
+        app.add_system_set(
+            SystemSet::on_enter(AppState::InGame)
+                .with_system(setup_game_ui)
+                .with_system(setup_tokens_ui),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(handle_turn_state_button)
+                .with_system(
+                    update_unclicked_turn_move_button_colors.after(handle_turn_state_button),
+                )
+                .with_system(
+                    handle_confirm_button_interaction
+                        .label(Label::EventWriter)
+                        .before(Label::EventReader),
+                )
+                .with_system(handle_move_validity_change),
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::TurnTransition).with_system(cleanup_tokens_ui),
+        )
+        // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
+            handle_selected_card_state_change_for_take,
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
+            handle_selected_card_state_change_for_sell,
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
+            handle_no_turn_state_selected
+                .after(handle_selected_card_state_change_for_take)
+                .after(handle_selected_card_state_change_for_sell),
+        );
     }
 }
