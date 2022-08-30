@@ -202,12 +202,12 @@ pub enum BonusType {
 impl Tokens {
     fn create_game_tokens() -> Self {
         let goods = enum_map! {
-          GoodType::Diamond => vec![7,7,5,5,5],
-          GoodType::Gold => vec![6,6,5,5,5],
-          GoodType::Silver => vec![5,5,5,5,5],
-          GoodType::Cloth => vec![5,3,3,2,2,1,1],
-          GoodType::Spice => vec![5,3,3,2,2,1,1],
-          GoodType::Leather => vec![4,3,2,1,1,1,1,1,1],
+          GoodType::Diamond => vec![5,5,5,7,7,],
+          GoodType::Gold => vec![5,5,5,6,6,],
+          GoodType::Silver => vec![5,5,5,5,5,],
+          GoodType::Cloth => vec![1,1,2,2,3,3,5,],
+          GoodType::Spice => vec![1,1,2,2,3,3,5,],
+          GoodType::Leather => vec![1,1,1,1,1,1,2,3,4,],
         };
 
         let mut rng = thread_rng();
@@ -1003,10 +1003,10 @@ fn handle_sell_goods_move_confirmed(
                 .insert(Animator::new(tween_goods_hand_to_discard_pile))
                 .remove::<ActivePlayerGoodsCard>();
 
-            let next_goods_token = game_tokens.goods[sold_card].last();
+            let next_goods_token = game_tokens.goods[sold_card].pop();
 
             if let Some(val) = next_goods_token {
-                tokens_owner.0.goods[sold_card].push(*val);
+                tokens_owner.0.goods[sold_card].push(val);
             }
         }
         let num_cards_sold = active_player_selected_goods_card.iter().count();
