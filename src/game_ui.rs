@@ -543,6 +543,11 @@ impl Plugin for GameUiPlugin {
                 .with_system(handle_move_validity_change),
         )
         .add_system_set(
+            SystemSet::on_exit(TurnState::Sell)
+                .with_system(cleanup_tokens_ui.before(setup_tokens_ui))
+                .with_system(setup_tokens_ui),
+        )
+        .add_system_set(
             SystemSet::on_enter(AppState::TurnTransition).with_system(cleanup_tokens_ui),
         )
         // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
