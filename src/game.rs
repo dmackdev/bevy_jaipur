@@ -1027,24 +1027,27 @@ fn handle_sell_goods_move_confirmed(
 }
 
 fn handle_confirm_turn_event(
-    mut commands: Commands,
     mut state: ResMut<State<AppState>>,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
+) {
+    for _ev in ev_confirm_turn.iter() {
+        state.set(AppState::WaitForTweensToFinish).unwrap();
+    }
+}
+
+fn update_active_player(
+    mut commands: Commands,
     active_player_query: Query<Entity, With<ActivePlayer>>,
     inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
 ) {
-    for _ev in ev_confirm_turn.iter() {
-        let active_player_entity = active_player_query.single();
-        let inactive_player_entity = inactive_player_query.single();
+    let active_player_entity = active_player_query.single();
+    let inactive_player_entity = inactive_player_query.single();
 
-        commands
-            .entity(active_player_entity)
-            .remove::<ActivePlayer>();
+    commands
+        .entity(active_player_entity)
+        .remove::<ActivePlayer>();
 
-        commands.entity(inactive_player_entity).insert(ActivePlayer);
-
-        state.set(AppState::WaitForTweensToFinish).unwrap();
-    }
+    commands.entity(inactive_player_entity).insert(ActivePlayer);
 }
 
 fn remove_card_selections_on_confirm_turn(
@@ -1165,6 +1168,7 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::WaitForTweensToFinish)
+                    .with_system(update_active_player)
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
