@@ -643,7 +643,7 @@ impl PlayerBundle {
 }
 
 #[derive(Component)]
-struct ActivePlayer;
+pub struct ActivePlayer;
 
 fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     let (camels, goods): (Vec<CardType>, Vec<GoodType>) =

@@ -7,8 +7,8 @@ use itertools::Itertools;
 use crate::{
     event::ConfirmTurnEvent,
     game::{
-        ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard,
-        SelectedCard, Tokens,
+        ActivePlayer, ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType,
+        MarketCard, SelectedCard, Tokens, TokensOwner,
     },
     label::Label,
     resources::{MoveType, MoveValidity, SelectedCardState},
@@ -156,8 +156,13 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component)]
 struct GameTokensUiRoot;
 
-fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, tokens: Res<Tokens>) {
-    let root_node_entity = commands
+fn setup_tokens_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    tokens: Res<Tokens>,
+    active_player_tokens_query: Query<&TokensOwner, With<ActivePlayer>>,
+) {
+    let game_tokens_root_node_entity = commands
         .spawn_bundle(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
@@ -165,7 +170,7 @@ fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, token
                 flex_direction: FlexDirection::ColumnReverse,
                 align_items: AlignItems::FlexStart,
                 justify_content: JustifyContent::Center,
-                position: UiRect::new(Val::Px(0.), Val::Auto, Val::Px(0.), Val::Px(0.)),
+                position: UiRect::new(Val::Px(0.), Val::Auto, Val::Px(0.), Val::Auto),
                 ..default()
             },
             color: Color::NONE.into(),
@@ -174,14 +179,43 @@ fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, token
         .insert(GameTokensUiRoot)
         .id();
 
-    let children = create_tokens_ui(&mut commands, asset_server, tokens.as_ref());
+    let game_tokens_children = create_tokens_ui(&mut commands, &asset_server, tokens.as_ref());
 
-    commands.entity(root_node_entity).push_children(&children);
+    commands
+        .entity(game_tokens_root_node_entity)
+        .push_children(&game_tokens_children);
+
+    let player_tokens_root_node_entity = commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                margin: UiRect::all(Val::Auto),
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::Center,
+                position: UiRect::new(Val::Auto, Val::Px(0.), Val::Px(0.), Val::Auto),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .insert(GameTokensUiRoot)
+        .id();
+
+    let player_tokens_children = create_tokens_ui(
+        &mut commands,
+        &asset_server,
+        &active_player_tokens_query.single().0,
+    );
+
+    commands
+        .entity(player_tokens_root_node_entity)
+        .push_children(&player_tokens_children);
 }
 
 fn create_tokens_ui(
     commands: &mut Commands,
-    asset_server: Res<AssetServer>,
+    asset_server: &Res<AssetServer>,
     tokens: &Tokens,
 ) -> Vec<Entity> {
     let mut v: Vec<Entity> = vec![];
