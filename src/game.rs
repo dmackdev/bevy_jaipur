@@ -191,7 +191,7 @@ pub struct Tokens {
     pub bonus: EnumMap<BonusType, Vec<usize>>,
 }
 
-#[derive(Clone, Debug, Enum)]
+#[derive(Clone, Copy, Debug, Enum)]
 pub enum BonusType {
     Three,
     Four,
@@ -962,17 +962,18 @@ fn handle_sell_goods_move_confirmed(
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
     mut discard_pile: ResMut<DiscardPile>,
     mut tween_state: ResMut<TweenState>,
+    mut game_tokens: ResMut<Tokens>,
     active_player_selected_goods_card: Query<
         (Entity, &ActivePlayerGoodsCard, &Transform),
         With<SelectedCard>,
     >,
-    mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
+    mut active_player_query: Query<(&mut GoodsHandOwner, &mut TokensOwner), With<ActivePlayer>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
         .filter(|ev| matches!(ev.0, MoveType::SellGoods))
     {
-        let mut goods_hand_owner = active_player_query.single_mut();
+        let (mut goods_hand_owner, mut tokens_owner) = active_player_query.single_mut();
 
         for (e, active_player_goods_card, transform) in active_player_selected_goods_card.iter() {
             let sold_card = goods_hand_owner.0.remove(active_player_goods_card.0);
@@ -997,7 +998,25 @@ fn handle_sell_goods_move_confirmed(
                 .insert(Animator::new(tween_goods_hand_to_discard_pile))
                 .remove::<ActivePlayerGoodsCard>();
 
-            // TODO: Award bonus
+            let next_goods_token = game_tokens.goods[sold_card].last();
+
+            if let Some(val) = next_goods_token {
+                tokens_owner.0.goods[sold_card].push(*val);
+            }
+        }
+        let num_cards_sold = active_player_selected_goods_card.iter().count();
+        let bonus_type = match num_cards_sold {
+            d if d == 3 => Some(BonusType::Three),
+            d if d == 4 => Some(BonusType::Four),
+            d if 5 <= d => Some(BonusType::Five),
+            _ => None,
+        };
+
+        if let Some(bt) = bonus_type {
+            if let Some(val) = game_tokens.bonus[bt].pop() {
+                tokens_owner.0.bonus[bt].push(val);
+                // TODO: Notify for tokens UI update
+            }
         }
     }
 }
