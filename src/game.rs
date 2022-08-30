@@ -8,6 +8,7 @@ use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::cmp::Reverse;
 use std::iter;
 use std::time::Duration;
 
@@ -975,7 +976,11 @@ fn handle_sell_goods_move_confirmed(
     {
         let (mut goods_hand_owner, mut tokens_owner) = active_player_query.single_mut();
 
-        for (e, active_player_goods_card, transform) in active_player_selected_goods_card.iter() {
+        for (e, active_player_goods_card, transform) in active_player_selected_goods_card
+            .iter()
+            // sort in desc order to avoid shifting the indices for subsequent loop iterations after having removed a card from the hand
+            .sorted_by_key(|(_, active_player_goods_card, _)| Reverse(active_player_goods_card.0))
+        {
             let sold_card = goods_hand_owner.0.remove(active_player_goods_card.0);
 
             discard_pile.cards.push(CardType::Good(sold_card));
