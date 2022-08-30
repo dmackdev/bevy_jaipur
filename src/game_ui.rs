@@ -1,6 +1,7 @@
 use std::{fmt, ops::DerefMut};
 
 use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::tess::path::commands;
 use itertools::Itertools;
 
 use crate::{
@@ -173,6 +174,16 @@ fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, token
         .insert(GameTokensUiRoot)
         .id();
 
+    let children = create_tokens_ui(&mut commands, asset_server, tokens.as_ref());
+
+    commands.entity(root_node_entity).push_children(&children);
+}
+
+fn create_tokens_ui(
+    commands: &mut Commands,
+    asset_server: Res<AssetServer>,
+    tokens: &Tokens,
+) -> Vec<Entity> {
     let mut v: Vec<Entity> = vec![];
     tokens.goods.iter().for_each(|(good_type, token_values)| {
         let t = commands
@@ -219,8 +230,7 @@ fn setup_tokens_ui(mut commands: Commands, asset_server: Res<AssetServer>, token
 
         v.push(t);
     });
-
-    commands.entity(root_node_entity).push_children(&v);
+    v
 }
 
 fn cleanup_tokens_ui(
