@@ -592,6 +592,7 @@ impl Plugin for GameUiPlugin {
         .add_system_set(
             SystemSet::on_enter(AppState::TurnTransition).with_system(cleanup_tokens_ui),
         )
+        .add_system_set(SystemSet::on_enter(AppState::GameOver).with_system(cleanup_tokens_ui))
         // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
         .add_system_to_stage(
             CoreStage::PostUpdate,
