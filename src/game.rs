@@ -434,7 +434,7 @@ fn setup_game_over_screen(
 
     for stats in &[first_player_stats.clone(), second_player_stats.clone()] {
         let camel_bonus_text = if stats.camel_bonus_awarded {
-            " (includes Camel bonus)"
+            " (Camel bonus awarded)"
         } else {
             ""
         };
