@@ -380,7 +380,6 @@ fn setup_game_over_screen(
             color: Color::CRIMSON.into(),
             ..default()
         })
-        .insert(TurnTransitionScreen)
         .with_children(|parent| {
             parent.spawn_bundle(
                 TextBundle::from_section(
