@@ -8,7 +8,7 @@ use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use std::cmp::Reverse;
+use std::cmp::{Ordering, Reverse};
 use std::iter;
 use std::time::Duration;
 
@@ -361,6 +361,152 @@ fn handle_turn_transition_screen_interaction(
             }
         }
     }
+}
+
+fn setup_game_over_screen(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    players_query: Query<(&PlayerName, &TokensOwner, &CamelsHandOwner)>,
+) {
+    let root_entity = commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            color: Color::CRIMSON.into(),
+            ..default()
+        })
+        .insert(TurnTransitionScreen)
+        .with_children(|parent| {
+            parent.spawn_bundle(
+                TextBundle::from_section(
+                    "Game Over".to_string(),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.0)),
+                    ..default()
+                }),
+            );
+        })
+        .id();
+
+    let mut children: Vec<Entity> = vec![];
+
+    let players: Vec<_> = players_query.iter().collect();
+
+    let first_player = players[0];
+    let first_player_num_camels = first_player.2 .0;
+    let mut first_player_stats = PlayerStats {
+        name: first_player.0 .0.to_string(),
+        final_score: get_tokens_score(&first_player.1 .0),
+        camel_bonus_awarded: false,
+    };
+
+    let second_player = players[1];
+    let second_player_num_camels = second_player.2 .0;
+
+    let mut second_player_stats = PlayerStats {
+        name: second_player.0 .0.to_string(),
+        final_score: get_tokens_score(&second_player.1 .0),
+        camel_bonus_awarded: false,
+    };
+
+    match first_player_num_camels.cmp(&second_player_num_camels) {
+        Ordering::Greater => {
+            first_player_stats.camel_bonus_awarded = true;
+            first_player_stats.final_score += 5;
+        }
+        Ordering::Less => {
+            second_player_stats.camel_bonus_awarded = true;
+            second_player_stats.final_score += 5;
+        }
+        Ordering::Equal => {}
+    }
+
+    for stats in &[first_player_stats.clone(), second_player_stats.clone()] {
+        let camel_bonus_text = if stats.camel_bonus_awarded {
+            " (includes Camel bonus)"
+        } else {
+            ""
+        };
+
+        let txt = commands
+            .spawn_bundle(
+                TextBundle::from_section(
+                    format!("{}: {}{}", stats.name, stats.final_score, camel_bonus_text),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.0)),
+                    ..default()
+                }),
+            )
+            .id();
+
+        children.push(txt);
+    }
+
+    let winning_player = match first_player_stats
+        .final_score
+        .cmp(&second_player_stats.final_score)
+    {
+        Ordering::Greater => Some(first_player_stats),
+        Ordering::Less => Some(second_player_stats),
+        Ordering::Equal => None,
+    };
+
+    let winning_player_str = match winning_player {
+        Some(stats) => format!("{} wins!", stats.name),
+        None => "It's a tie!".to_string(),
+    };
+
+    let winner_text = commands
+        .spawn_bundle(
+            TextBundle::from_section(
+                winning_player_str,
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                },
+            )
+            .with_style(Style {
+                margin: UiRect::all(Val::Px(10.0)),
+                ..default()
+            }),
+        )
+        .id();
+
+    children.push(winner_text);
+
+    commands.entity(root_entity).push_children(&children);
+}
+
+fn get_tokens_score(tokens: &Tokens) -> usize {
+    let all_goods_tokens_values = tokens.goods.iter().flat_map(|(_, values)| values);
+    let all_bonus_tokens_values = tokens.bonus.iter().flat_map(|(_, values)| values);
+
+    all_goods_tokens_values.chain(all_bonus_tokens_values).sum()
+}
+
+#[derive(Clone)]
+struct PlayerStats {
+    name: String,
+    final_score: usize,
+    camel_bonus_awarded: bool,
 }
 
 const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
@@ -1189,6 +1335,9 @@ impl Plugin for GamePlugin {
                 SystemSet::on_exit(AppState::WaitForTweensToFinish)
                     .with_system(update_active_player)
                     .with_system(despawn_entity_with_component::<GameRoot>),
+            )
+            .add_system_set(
+                SystemSet::on_enter(AppState::GameOver).with_system(setup_game_over_screen),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
             .add_system_set(SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action))
