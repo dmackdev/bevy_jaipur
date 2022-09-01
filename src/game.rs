@@ -15,7 +15,7 @@ use std::time::Duration;
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 use crate::label::Label;
-use crate::resources::{DiscardPile, MoveType, MoveValidity, SelectedCardState};
+use crate::resources::{DiscardPile, GameState, MoveType, MoveValidity, SelectedCardState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -669,6 +669,7 @@ fn handle_take_single_good_move_confirmed(
     mut active_player_query: Query<&mut GoodsHandOwner, With<ActivePlayer>>,
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
+    mut game_state: ResMut<GameState>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -706,37 +707,40 @@ fn handle_take_single_good_move_confirmed(
             .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
 
         // Replace with card from deck
-        let replacement_card = deck.cards.pop().unwrap();
-        market.cards.insert(market_card.0, replacement_card);
+        if let Some(replacement_card) = deck.cards.pop() {
+            market.cards.insert(market_card.0, replacement_card);
 
-        let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
-            deck_cards_query
-                .iter_mut()
-                .max_by_key(|(_, dc, _, _, _)| dc.0)
-                .unwrap();
+            let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
+                deck_cards_query
+                    .iter_mut()
+                    .max_by_key(|(_, dc, _, _, _)| dc.0)
+                    .unwrap();
 
-        // Update the sprite to show the face
-        *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
+            // Update the sprite to show the face
+            *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
 
-        // Tween to the market card position
-        let second_tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            TweeningType::Once,
-            Duration::from_secs(2),
-            TransformPositionLens {
-                start: deck_card_transform.translation,
-                end: get_market_card_translation(market_card.0),
-            },
-        )
-        .with_completed_event(2);
+            // Tween to the market card position
+            let second_tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_secs(2),
+                TransformPositionLens {
+                    start: deck_card_transform.translation,
+                    end: get_market_card_translation(market_card.0),
+                },
+            )
+            .with_completed_event(2);
 
-        tween_state.tweening_entities.push(deck_card_entity);
+            tween_state.tweening_entities.push(deck_card_entity);
 
-        commands
-            .entity(deck_card_entity)
-            .insert(Animator::new(second_tween))
-            .remove::<DeckCard>()
-            .insert(MarketCard(market_card.0));
+            commands
+                .entity(deck_card_entity)
+                .insert(Animator::new(second_tween))
+                .remove::<DeckCard>()
+                .insert(MarketCard(market_card.0));
+        } else {
+            game_state.is_game_over = true;
+        }
     }
 }
 
@@ -751,6 +755,7 @@ fn handle_take_all_camels_move_confirmed(
     mut active_player_query: Query<&mut CamelsHandOwner, With<ActivePlayer>>,
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
+    mut game_state: ResMut<GameState>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -787,40 +792,43 @@ fn handle_take_all_camels_move_confirmed(
                 .insert(ActivePlayerCamelCard(active_player_camel_hand.0 - 1));
 
             // Replace with card from deck
-            let replacement_card = deck.cards.pop().unwrap();
-            market.cards.insert(market_card.0, replacement_card);
+            if let Some(replacement_card) = deck.cards.pop() {
+                market.cards.insert(market_card.0, replacement_card);
 
-            let l = deck_cards_query.iter().len();
-            // Get the top deck card - with the highest index
-            let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
-                deck_cards_query
-                    .iter_mut()
-                    .sorted_by_key(|(_, dc, _, _, _)| dc.0)
-                    .nth(l - 1 - idx)
-                    .unwrap();
+                let l = deck_cards_query.iter().len();
+                // Get the top deck card - with the highest index
+                let (deck_card_entity, _, card, deck_card_transform, mut top_deck_card_texture) =
+                    deck_cards_query
+                        .iter_mut()
+                        .sorted_by_key(|(_, dc, _, _, _)| dc.0)
+                        .nth(l - 1 - idx)
+                        .unwrap();
 
-            // Update the sprite to show the face
-            *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
+                // Update the sprite to show the face
+                *top_deck_card_texture = asset_server.load(&card.0.get_card_texture());
 
-            // Tween to the market card position
-            let second_tween = Tween::new(
-                EaseFunction::QuadraticInOut,
-                TweeningType::Once,
-                Duration::from_secs(2),
-                TransformPositionLens {
-                    start: deck_card_transform.translation,
-                    end: get_market_card_translation(market_card.0),
-                },
-            )
-            .with_completed_event(2);
+                // Tween to the market card position
+                let second_tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: deck_card_transform.translation,
+                        end: get_market_card_translation(market_card.0),
+                    },
+                )
+                .with_completed_event(2);
 
-            tween_state.tweening_entities.push(deck_card_entity);
+                tween_state.tweening_entities.push(deck_card_entity);
 
-            commands
-                .entity(deck_card_entity)
-                .insert(Animator::new(second_tween))
-                .remove::<DeckCard>()
-                .insert(MarketCard(market_card.0));
+                commands
+                    .entity(deck_card_entity)
+                    .insert(Animator::new(second_tween))
+                    .remove::<DeckCard>()
+                    .insert(MarketCard(market_card.0));
+            } else {
+                game_state.is_game_over = true;
+            }
         }
     }
 }
@@ -969,6 +977,7 @@ fn handle_sell_goods_move_confirmed(
         With<SelectedCard>,
     >,
     mut active_player_query: Query<(&mut GoodsHandOwner, &mut TokensOwner), With<ActivePlayer>>,
+    mut game_state: ResMut<GameState>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -1020,8 +1029,17 @@ fn handle_sell_goods_move_confirmed(
         if let Some(bt) = bonus_type {
             if let Some(val) = game_tokens.bonus[bt].pop() {
                 tokens_owner.0.bonus[bt].push(val);
-                // TODO: Notify for tokens UI update
             }
+        }
+
+        if game_tokens
+            .goods
+            .iter()
+            .filter(|(_, token_values)| token_values.is_empty())
+            .count()
+            >= 3
+        {
+            game_state.is_game_over = true;
         }
     }
 }
@@ -1110,6 +1128,7 @@ impl Plugin for GamePlugin {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
             .init_resource::<SelectedCardState>()
             .init_resource::<MoveValidity>()
+            .init_resource::<GameState>()
             .add_plugin(InteractionPlugin)
             .add_plugin(ShapePlugin)
             .add_plugin(TweeningPlugin)
@@ -1324,6 +1343,7 @@ fn wait_for_tweens_to_finish(
     mut app_state: ResMut<State<AppState>>,
     time: Res<Time>,
     mut timer: ResMut<ScreenTransitionDelayTimer>,
+    game_state: Res<GameState>,
 ) {
     for ev in ev_tween_completed.iter() {
         let index = tween_state
@@ -1340,6 +1360,11 @@ fn wait_for_tweens_to_finish(
 
     if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
         tween_state.did_all_tweens_complete = false;
-        app_state.set(AppState::TurnTransition).unwrap();
+
+        if game_state.is_game_over {
+            app_state.set(AppState::GameOver).unwrap();
+        } else {
+            app_state.set(AppState::TurnTransition).unwrap();
+        }
     }
 }
