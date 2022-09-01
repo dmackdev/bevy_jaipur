@@ -1,8 +1,6 @@
-use std::{fmt, ops::DerefMut};
-
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::tess::path::commands;
 use itertools::Itertools;
+use std::{fmt, ops::DerefMut};
 
 use crate::{
     event::ConfirmTurnEvent,
