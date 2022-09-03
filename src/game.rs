@@ -553,10 +553,6 @@ fn setup_game(mut commands: Commands) {
         player_two_num_camels,
     ));
 
-    debug_deck(deck.clone());
-    debug_market(market.clone());
-    debug_tokens(tokens.clone());
-
     commands.insert_resource(deck);
     commands.insert_resource(market);
     commands.insert_resource(tokens);
@@ -708,46 +704,6 @@ fn setup_game_screen(
         commands
             .entity(game_root_entity)
             .add_child(inactive_player_camels_hand_entity);
-    }
-}
-
-fn debug_deck(deck: Deck) {
-    println!("Deck:");
-    for card in deck.cards.iter() {
-        println!("{:?}", card);
-    }
-}
-
-fn debug_market(market: Market) {
-    println!("Market:");
-    for card in market.cards.iter() {
-        println!("{:?}", card);
-    }
-}
-
-fn debug_tokens(tokens: Tokens) {
-    println!("Tokens:");
-
-    println!("Goods:");
-    for (good, tks) in &tokens.goods {
-        println!("{:?} => {:?}", good, tks);
-    }
-
-    println!("Bonus:");
-    for (bonus, tks) in &tokens.bonus {
-        println!("{:?} => {:?}", bonus, tks);
-    }
-}
-
-fn debug_players(
-    query: Query<(&PlayerName, &GoodsHandOwner, &CamelsHandOwner, &TokensOwner), With<Player>>,
-) {
-    println!("Players:");
-    for (name, goods_hand, camels_hand, tokens) in query.iter() {
-        println!("Name: {:?}", name.0);
-        println!("Goods hand: {:?}", goods_hand.0);
-        println!("Camels: {:?}", camels_hand.0);
-        println!("Tokens: {:?}\n", tokens.0);
     }
 }
 
