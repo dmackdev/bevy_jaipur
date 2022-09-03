@@ -3,13 +3,14 @@ use itertools::Itertools;
 use std::{fmt, ops::DerefMut};
 
 use crate::{
+    card_selection::{SelectedCard, SelectedCardState},
     event::ConfirmTurnEvent,
     game::{
         ActivePlayer, ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType,
-        MarketCard, SelectedCard, Tokens, TokensOwner,
+        MarketCard, Tokens, TokensOwner,
     },
     label::Label,
-    resources::{MoveType, MoveValidity, SelectedCardState},
+    resources::{MoveType, MoveValidity},
     states::{AppState, TurnState},
 };
 

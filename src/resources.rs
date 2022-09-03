@@ -1,9 +1,4 @@
-use bevy::prelude::Entity;
-
 use crate::game::CardType;
-
-#[derive(Default)]
-pub struct SelectedCardState(pub Vec<Entity>);
 
 #[derive(Default, Eq, PartialEq)]
 pub enum MoveValidity {
