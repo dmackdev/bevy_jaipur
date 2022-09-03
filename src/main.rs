@@ -1,19 +1,18 @@
 mod common_systems;
 mod event;
 mod game;
-mod game_ui;
 mod label;
-mod main_menu;
 mod resources;
 mod states;
+mod ui;
 
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_interact_2d::{Group, InteractionSource};
 use event::EventsPlugin;
 use game::*;
-use game_ui::GameUiPlugin;
-use main_menu::MainMenuPlugin;
 use states::{AppState, TurnState};
+use ui::game_ui::GameUiPlugin;
+use ui::main_menu::MainMenuPlugin;
 
 #[allow(clippy::type_complexity)]
 
