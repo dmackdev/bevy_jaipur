@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_interact_2d::{Group, Interactable, InteractionState};
+use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_prototype_lyon::{
     prelude::{DrawMode, GeometryBuilder, StrokeMode},
     shapes::Polygon,
@@ -147,7 +148,8 @@ pub struct CardSelectionPlugin;
 
 impl Plugin for CardSelectionPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SelectedCardState>()
+        app.add_plugin(ShapePlugin)
+            .init_resource::<SelectedCardState>()
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_card_as_clicked)

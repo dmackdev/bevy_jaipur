@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_interact_2d::*;
-use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_tweening::lens::TransformPositionLens;
 use bevy_tweening::{Animator, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType};
 use enum_map::{enum_map, Enum, EnumMap};
@@ -1209,7 +1208,6 @@ impl Plugin for GamePlugin {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
             .init_resource::<GameState>()
             .add_plugin(InteractionPlugin)
-            .add_plugin(ShapePlugin)
             .add_plugin(TweeningPlugin)
             .add_plugin(CardSelectionPlugin)
             .add_plugin(MoveValidationPlugin)
