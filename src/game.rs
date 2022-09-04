@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_interact_2d::*;
-use bevy_tweening::{TweenCompleted, TweeningPlugin};
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -10,7 +9,7 @@ use std::iter;
 
 use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
-use crate::move_execution::MoveExecutionPlugin;
+use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, TweenState};
 use crate::move_validation::{MoveValidationPlugin, MoveValidity};
 use crate::resources::{DiscardPile, GameState};
 use crate::states::{AppState, TurnState};
@@ -545,7 +544,6 @@ fn setup_game(mut commands: Commands) {
     commands.insert_resource(market);
     commands.insert_resource(tokens);
     commands.init_resource::<DiscardPile>();
-    commands.init_resource::<TweenState>();
 }
 
 #[derive(Component)]
@@ -804,10 +802,8 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
-            .init_resource::<GameState>()
+        app.init_resource::<GameState>()
             .add_plugin(InteractionPlugin)
-            .add_plugin(TweeningPlugin)
             .add_plugin(CardSelectionPlugin)
             .add_plugin(MoveValidationPlugin)
             .add_plugin(MoveExecutionPlugin)
@@ -828,10 +824,6 @@ impl Plugin for GamePlugin {
                     .with_system(despawn_entity_with_component::<TurnTransitionScreen>),
             )
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
-            .add_system_set(
-                SystemSet::on_update(AppState::WaitForTweensToFinish)
-                    .with_system(wait_for_tweens_to_finish),
-            )
             .add_system_set(
                 SystemSet::on_exit(AppState::WaitForTweensToFinish)
                     .with_system(update_active_player)
@@ -859,45 +851,4 @@ pub fn get_market_card_translation(idx: usize) -> Vec3 {
 
 pub fn get_active_player_camel_card_translation(idx: usize) -> Vec3 {
     CAMEL_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
-}
-
-#[derive(Default)]
-pub struct TweenState {
-    pub tweening_entities: Vec<Entity>,
-    // Distinguishes between there never being any tweening entities in the first place, and actual tweens that started completing
-    pub did_all_tweens_complete: bool,
-}
-
-struct ScreenTransitionDelayTimer(Timer);
-
-fn wait_for_tweens_to_finish(
-    mut ev_tween_completed: EventReader<TweenCompleted>,
-    mut tween_state: ResMut<TweenState>,
-    mut app_state: ResMut<State<AppState>>,
-    time: Res<Time>,
-    mut timer: ResMut<ScreenTransitionDelayTimer>,
-    game_state: Res<GameState>,
-) {
-    for ev in ev_tween_completed.iter() {
-        let index = tween_state
-            .tweening_entities
-            .iter()
-            .position(|e| *e == ev.entity)
-            .unwrap();
-        tween_state.tweening_entities.remove(index);
-
-        if tween_state.tweening_entities.is_empty() {
-            tween_state.did_all_tweens_complete = true;
-        }
-    }
-
-    if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
-        tween_state.did_all_tweens_complete = false;
-
-        if game_state.is_game_over {
-            app_state.set(AppState::GameOver).unwrap();
-        } else {
-            app_state.set(AppState::TurnTransition).unwrap();
-        }
-    }
 }

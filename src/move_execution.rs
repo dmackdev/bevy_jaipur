@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{Animator, EaseFunction, Tween, TweeningType};
+use bevy_tweening::{Animator, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType};
 use itertools::Itertools;
 use std::cmp::Reverse;
 use std::time::Duration;
@@ -411,41 +411,89 @@ fn handle_confirm_turn_event(
     }
 }
 
+#[derive(Default)]
+pub struct TweenState {
+    pub tweening_entities: Vec<Entity>,
+    // Distinguishes between there never being any tweening entities in the first place, and actual tweens that started completing
+    pub did_all_tweens_complete: bool,
+}
+
+pub struct ScreenTransitionDelayTimer(Timer);
+
+fn wait_for_tweens_to_finish(
+    mut ev_tween_completed: EventReader<TweenCompleted>,
+    mut tween_state: ResMut<TweenState>,
+    mut app_state: ResMut<State<AppState>>,
+    time: Res<Time>,
+    mut timer: ResMut<ScreenTransitionDelayTimer>,
+    game_state: Res<GameState>,
+) {
+    for ev in ev_tween_completed.iter() {
+        let index = tween_state
+            .tweening_entities
+            .iter()
+            .position(|e| *e == ev.entity)
+            .unwrap();
+        tween_state.tweening_entities.remove(index);
+
+        if tween_state.tweening_entities.is_empty() {
+            tween_state.did_all_tweens_complete = true;
+        }
+    }
+
+    if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
+        tween_state.did_all_tweens_complete = false;
+
+        if game_state.is_game_over {
+            app_state.set(AppState::GameOver).unwrap();
+        } else {
+            app_state.set(AppState::TurnTransition).unwrap();
+        }
+    }
+}
+
 pub struct MoveExecutionPlugin;
 
 impl Plugin for MoveExecutionPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system_set(
-            SystemSet::on_update(AppState::InGame)
-                .with_system(
-                    handle_take_single_good_move_confirmed
-                        .label(Label::EventReader)
-                        .before(handle_confirm_turn_event)
-                        .after(Label::EventWriter),
-                )
-                .with_system(
-                    handle_take_all_camels_move_confirmed
-                        .label(Label::EventReader)
-                        .before(handle_confirm_turn_event)
-                        .after(Label::EventWriter),
-                )
-                .with_system(
-                    handle_exchange_goods_move_confirmed
-                        .label(Label::EventReader)
-                        .before(handle_confirm_turn_event)
-                        .after(Label::EventWriter),
-                )
-                .with_system(
-                    handle_sell_goods_move_confirmed
-                        .label(Label::EventReader)
-                        .before(handle_confirm_turn_event)
-                        .after(Label::EventWriter),
-                )
-                .with_system(
-                    handle_confirm_turn_event
-                        .label(Label::EventReader)
-                        .after(Label::EventWriter),
-                ),
-        );
+        app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
+            .init_resource::<TweenState>()
+            .add_plugin(TweeningPlugin)
+            .add_system_set(
+                SystemSet::on_update(AppState::InGame)
+                    .with_system(
+                        handle_take_single_good_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_take_all_camels_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_exchange_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_sell_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_confirm_turn_event
+                            .label(Label::EventReader)
+                            .after(Label::EventWriter),
+                    ),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::WaitForTweensToFinish)
+                    .with_system(wait_for_tweens_to_finish),
+            );
     }
 }
