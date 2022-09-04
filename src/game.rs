@@ -15,7 +15,8 @@ use crate::card_selection::{CardSelectionPlugin, SelectedCard, SelectedCardState
 use crate::common_systems::despawn_entity_with_component;
 use crate::event::ConfirmTurnEvent;
 use crate::label::Label;
-use crate::resources::{DiscardPile, GameState, MoveType, MoveValidity};
+use crate::move_validation::{MoveType, MoveValidationPlugin, MoveValidity};
+use crate::resources::{DiscardPile, GameState};
 use crate::states::{AppState, TurnState};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1209,12 +1210,12 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
-            .init_resource::<MoveValidity>()
             .init_resource::<GameState>()
             .add_plugin(InteractionPlugin)
             .add_plugin(ShapePlugin)
             .add_plugin(TweeningPlugin)
             .add_plugin(CardSelectionPlugin)
+            .add_plugin(MoveValidationPlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
             .add_system_set(
                 SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),

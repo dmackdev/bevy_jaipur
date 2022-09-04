@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::resources::MoveType;
+use crate::move_validation::MoveType;
 
 pub struct ConfirmTurnEvent(pub MoveType);
 
