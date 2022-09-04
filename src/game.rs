@@ -80,9 +80,6 @@ pub struct ActivePlayerGoodsCard(usize);
 #[derive(Component)]
 pub struct ActivePlayerCamelCard(usize);
 
-#[derive(Component)]
-pub struct CardOutline;
-
 #[derive(Clone)]
 pub struct Deck {
     pub cards: Vec<CardType>,

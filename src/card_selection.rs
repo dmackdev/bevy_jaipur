@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     event::ConfirmTurnEvent,
-    game::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardOutline, MarketCard},
+    game::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, MarketCard},
     label::Label,
     states::AppState,
 };
@@ -18,6 +18,9 @@ struct ClickedCard;
 
 #[derive(Component)]
 pub struct SelectedCard;
+
+#[derive(Component)]
+pub struct CardOutline;
 
 #[derive(Default)]
 pub struct SelectedCardState(pub Vec<Entity>);
