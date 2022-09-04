@@ -3,6 +3,7 @@ mod common_systems;
 mod event;
 mod game;
 mod label;
+mod move_execution;
 mod move_validation;
 mod resources;
 mod states;
