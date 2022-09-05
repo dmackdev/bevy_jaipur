@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_interact_2d::{Group, Interactable, InteractionState};
+use bevy_interact_2d::{Group, Interactable, InteractionPlugin, InteractionState};
 use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_prototype_lyon::{
     prelude::{DrawMode, GeometryBuilder, StrokeMode},
@@ -7,6 +7,8 @@ use bevy_prototype_lyon::{
 };
 use itertools::Itertools;
 
+use crate::positioning::CARD_DIMENSION;
+use crate::states::TurnState;
 use crate::{
     event::ConfirmTurnEvent,
     game::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, MarketCard},
@@ -144,11 +146,53 @@ fn remove_card_selections_on_confirm_turn(
     }
 }
 
+fn setup_for_take_action(
+    mut commands: Commands,
+    query: Query<
+        Entity,
+        Or<(
+            With<MarketCard>,
+            With<ActivePlayerGoodsCard>,
+            With<ActivePlayerCamelCard>,
+        )>,
+    >,
+) {
+    // TODO: remove other Interactables, only add to cards that can be interacted with for Take
+
+    for entity in query.iter() {
+        commands.entity(entity).insert(Interactable {
+            groups: vec![Group(0)],
+            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
+        });
+    }
+}
+
+fn setup_for_sell_action(
+    mut commands: Commands,
+    query: Query<
+        Entity,
+        Or<(
+            With<MarketCard>,
+            With<ActivePlayerGoodsCard>,
+            With<ActivePlayerCamelCard>,
+        )>,
+    >,
+) {
+    // TODO: remove other Interactables, only add to cards that can be interacted with for Sell
+    for entity in query.iter() {
+        commands.entity(entity).insert(Interactable {
+            groups: vec![Group(0)],
+            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
+        });
+    }
+}
+
 pub struct CardSelectionPlugin;
 
 impl Plugin for CardSelectionPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ShapePlugin)
+            .add_plugin(InteractionPlugin)
             .init_resource::<SelectedCardState>()
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
@@ -161,6 +205,8 @@ impl Plugin for CardSelectionPlugin {
                             .after(Label::EventWriter),
                     ),
             )
+            .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
+            .add_system_set(SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action))
             // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
             .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_removed);
     }

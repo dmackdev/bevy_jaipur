@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_interact_2d::*;
 use enum_map::{enum_map, Enum, EnumMap};
 use itertools::{Either, Itertools};
 use rand::seq::SliceRandom;
@@ -17,7 +16,7 @@ use crate::positioning::{
     INACTIVE_PLAYER_GOODS_HAND_START_POS,
 };
 use crate::resources::{DiscardPile, GameState};
-use crate::states::{AppState, TurnState};
+use crate::states::AppState;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CardType {
@@ -742,53 +741,11 @@ fn update_active_player(
     commands.entity(inactive_player_entity).insert(ActivePlayer);
 }
 
-fn setup_for_take_action(
-    mut commands: Commands,
-    query: Query<
-        Entity,
-        Or<(
-            With<MarketCard>,
-            With<ActivePlayerGoodsCard>,
-            With<ActivePlayerCamelCard>,
-        )>,
-    >,
-) {
-    // TODO: remove other Interactables, only add to cards that can be interacted with for Take
-
-    for entity in query.iter() {
-        commands.entity(entity).insert(Interactable {
-            groups: vec![Group(0)],
-            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
-        });
-    }
-}
-
-fn setup_for_sell_action(
-    mut commands: Commands,
-    query: Query<
-        Entity,
-        Or<(
-            With<MarketCard>,
-            With<ActivePlayerGoodsCard>,
-            With<ActivePlayerCamelCard>,
-        )>,
-    >,
-) {
-    // TODO: remove other Interactables, only add to cards that can be interacted with for Sell
-    for entity in query.iter() {
-        commands.entity(entity).insert(Interactable {
-            groups: vec![Group(0)],
-            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
-        });
-    }
-}
-
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameState>()
-            .add_plugin(InteractionPlugin)
             .add_plugin(CardSelectionPlugin)
             .add_plugin(MoveValidationPlugin)
             .add_plugin(MoveExecutionPlugin)
@@ -816,10 +773,6 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_enter(AppState::GameOver).with_system(setup_game_over_screen),
-            )
-            .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
-            .add_system_set(
-                SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action),
             );
     }
 }
