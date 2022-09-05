@@ -10,6 +10,10 @@ use crate::event::ConfirmTurnEvent;
 use crate::game::*;
 use crate::label::Label;
 use crate::move_validation::MoveType;
+use crate::positioning::{
+    get_active_player_camel_card_translation, get_active_player_goods_card_translation,
+    get_market_card_translation, DISCARD_PILE_POS,
+};
 use crate::resources::{DiscardPile, GameState};
 use crate::states::AppState;
 

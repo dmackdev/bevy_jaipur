@@ -11,6 +11,11 @@ use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
 use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, TweenState};
 use crate::move_validation::{MoveValidationPlugin, MoveValidity};
+use crate::positioning::{
+    get_active_player_camel_card_translation, get_active_player_goods_card_translation,
+    get_market_card_translation, CARD_DIMENSION, CARD_PADDING, DECK_START_POS, DISCARD_PILE_POS,
+    INACTIVE_PLAYER_GOODS_HAND_START_POS,
+};
 use crate::resources::{DiscardPile, GameState};
 use crate::states::{AppState, TurnState};
 
@@ -495,26 +500,6 @@ struct PlayerStats {
     camel_bonus_awarded: bool,
 }
 
-const DECK_START_POS: Vec3 = Vec3::new(300.0, 0.0, 0.0);
-pub const DISCARD_PILE_POS: Vec3 = Vec3::new(
-    DECK_START_POS.x + 1.5 * CARD_DIMENSION.x + CARD_PADDING,
-    DECK_START_POS.y,
-    0.,
-);
-const CARD_DIMENSION: Vec2 = Vec2::new(104.0, 150.0);
-const GOODS_HAND_START_POS: Vec3 = Vec3::new(-5.0 * 0.5 * CARD_DIMENSION.x, -400.0, 0.0);
-const CAMEL_HAND_START_POS: Vec3 = Vec3::new(
-    GOODS_HAND_START_POS.x,
-    GOODS_HAND_START_POS.y + CARD_DIMENSION.y + CARD_PADDING,
-    0.0,
-);
-const INACTIVE_PLAYER_GOODS_HAND_START_POS: Vec3 = Vec3::new(
-    GOODS_HAND_START_POS.x,
-    GOODS_HAND_START_POS.y * -1.0,
-    GOODS_HAND_START_POS.z,
-);
-const CARD_PADDING: f32 = 20.0;
-
 fn setup_game(mut commands: Commands) {
     let mut deck = Deck::default();
     let market = Market::new(&mut deck);
@@ -837,18 +822,4 @@ impl Plugin for GamePlugin {
                 SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action),
             );
     }
-}
-
-pub fn get_active_player_goods_card_translation(idx: usize) -> Vec3 {
-    GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
-}
-
-pub fn get_market_card_translation(idx: usize) -> Vec3 {
-    DECK_START_POS
-        - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
-        - (5 - idx) as f32 * CARD_PADDING * Vec3::X
-}
-
-pub fn get_active_player_camel_card_translation(idx: usize) -> Vec3 {
-    CAMEL_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
 }

@@ -5,6 +5,7 @@ mod game;
 mod label;
 mod move_execution;
 mod move_validation;
+mod positioning;
 mod resources;
 mod states;
 mod ui;
