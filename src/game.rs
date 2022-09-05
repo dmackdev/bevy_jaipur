@@ -6,6 +6,7 @@ use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
 use crate::game_resources::card::*;
 use crate::game_resources::deck::Deck;
+use crate::game_resources::market::Market;
 use crate::game_resources::tokens::*;
 use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, TweenState};
 use crate::move_validation::{MoveValidationPlugin, MoveValidity};
@@ -16,38 +17,6 @@ use crate::positioning::{
 };
 use crate::resources::{DiscardPile, GameState};
 use crate::states::AppState;
-
-#[derive(Clone)]
-pub struct Market {
-    pub cards: Vec<CardType>,
-}
-
-impl Market {
-    fn new(deck: &mut Deck) -> Self {
-        // take 3 camel tokens from deck, and 2 random cards to fill the market
-        let mut market_cards = vec![];
-
-        for _ in 0..3 {
-            let camel_card_idx = deck
-                .cards
-                .iter()
-                .position(|c| *c == CardType::Camel)
-                .unwrap();
-
-            let camel_card = deck.cards.remove(camel_card_idx);
-            market_cards.push(camel_card);
-        }
-
-        for _ in 0..2 {
-            let random_card = deck.cards.remove(0);
-            market_cards.push(random_card);
-        }
-
-        Self {
-            cards: market_cards,
-        }
-    }
-}
 
 #[allow(clippy::too_many_arguments)]
 fn handle_when_resources_ready(
