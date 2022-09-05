@@ -1,4 +1,4 @@
-use crate::game::CardType;
+use crate::card::CardType;
 
 #[derive(Default)]
 pub struct DiscardPile {

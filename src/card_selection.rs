@@ -9,12 +9,7 @@ use itertools::Itertools;
 
 use crate::positioning::CARD_DIMENSION;
 use crate::states::TurnState;
-use crate::{
-    event::ConfirmTurnEvent,
-    game::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, MarketCard},
-    label::Label,
-    states::AppState,
-};
+use crate::{card::*, event::ConfirmTurnEvent, label::Label, states::AppState};
 
 #[derive(Component)]
 struct ClickedCard;
