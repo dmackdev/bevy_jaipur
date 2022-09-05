@@ -9,6 +9,7 @@ use crate::card_selection::SelectedCard;
 use crate::event::ConfirmTurnEvent;
 use crate::game::*;
 use crate::game_resources::card::*;
+use crate::game_resources::deck::Deck;
 use crate::game_resources::tokens::{BonusType, Tokens};
 use crate::label::Label;
 use crate::move_validation::MoveType;
