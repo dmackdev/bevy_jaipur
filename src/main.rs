@@ -9,6 +9,7 @@ mod move_validation;
 mod positioning;
 mod resources;
 mod states;
+mod tokens;
 mod ui;
 
 use bevy::{prelude::*, render::camera::ScalingMode};

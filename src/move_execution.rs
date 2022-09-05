@@ -17,6 +17,7 @@ use crate::positioning::{
 };
 use crate::resources::{DiscardPile, GameState};
 use crate::states::AppState;
+use crate::tokens::{BonusType, Tokens};
 
 #[allow(clippy::too_many_arguments)]
 fn handle_take_single_good_move_confirmed(

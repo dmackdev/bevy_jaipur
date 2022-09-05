@@ -5,10 +5,11 @@ use std::{fmt, ops::DerefMut};
 use crate::{
     card_selection::SelectedCardState,
     event::ConfirmTurnEvent,
-    game::{ActivePlayer, Tokens, TokensOwner},
+    game::{ActivePlayer, TokensOwner},
     label::Label,
     move_validation::MoveValidity,
     states::{AppState, TurnState},
+    tokens::Tokens,
 };
 
 #[derive(Debug, Copy, Clone)]
