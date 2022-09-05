@@ -6,6 +6,7 @@ use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
 use crate::game_resources::card::*;
 use crate::game_resources::deck::Deck;
+use crate::game_resources::discard_pile::DiscardPile;
 use crate::game_resources::market::Market;
 use crate::game_resources::tokens::*;
 use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, TweenState};
@@ -15,7 +16,7 @@ use crate::positioning::{
     get_market_card_translation, CARD_DIMENSION, CARD_PADDING, DECK_START_POS, DISCARD_PILE_POS,
     INACTIVE_PLAYER_GOODS_HAND_START_POS,
 };
-use crate::resources::{DiscardPile, GameState};
+use crate::resources::GameState;
 use crate::states::AppState;
 
 #[allow(clippy::too_many_arguments)]

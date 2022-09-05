@@ -10,6 +10,7 @@ use crate::event::ConfirmTurnEvent;
 use crate::game::*;
 use crate::game_resources::card::*;
 use crate::game_resources::deck::Deck;
+use crate::game_resources::discard_pile::DiscardPile;
 use crate::game_resources::market::Market;
 use crate::game_resources::tokens::{BonusType, Tokens};
 use crate::label::Label;
@@ -18,7 +19,7 @@ use crate::positioning::{
     get_active_player_camel_card_translation, get_active_player_goods_card_translation,
     get_market_card_translation, DISCARD_PILE_POS,
 };
-use crate::resources::{DiscardPile, GameState};
+use crate::resources::GameState;
 use crate::states::AppState;
 
 #[allow(clippy::too_many_arguments)]
