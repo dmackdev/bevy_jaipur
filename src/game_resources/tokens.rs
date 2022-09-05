@@ -1,7 +1,7 @@
 use enum_map::{enum_map, Enum, EnumMap};
 use rand::{seq::SliceRandom, thread_rng};
 
-use crate::card::GoodType;
+use super::card::GoodType;
 
 #[derive(Clone, Debug)]
 pub struct Tokens {

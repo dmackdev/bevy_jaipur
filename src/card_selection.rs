@@ -7,9 +7,10 @@ use bevy_prototype_lyon::{
 };
 use itertools::Itertools;
 
+use crate::game_resources::card::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, MarketCard};
 use crate::positioning::CARD_DIMENSION;
 use crate::states::TurnState;
-use crate::{card::*, event::ConfirmTurnEvent, label::Label, states::AppState};
+use crate::{event::ConfirmTurnEvent, label::Label, states::AppState};
 
 #[derive(Component)]
 struct ClickedCard;

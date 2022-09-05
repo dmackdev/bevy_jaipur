@@ -1,15 +1,14 @@
-mod card;
 mod card_selection;
 mod common_systems;
 mod event;
 mod game;
+mod game_resources;
 mod label;
 mod move_execution;
 mod move_validation;
 mod positioning;
 mod resources;
 mod states;
-mod tokens;
 mod ui;
 
 use bevy::{prelude::*, render::camera::ScalingMode};

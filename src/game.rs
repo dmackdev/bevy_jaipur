@@ -5,11 +5,10 @@ use rand::thread_rng;
 use std::cmp::Ordering;
 use std::iter;
 
-use crate::card::{
-    ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard,
-};
 use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
+use crate::game_resources::card::*;
+use crate::game_resources::tokens::*;
 use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, TweenState};
 use crate::move_validation::{MoveValidationPlugin, MoveValidity};
 use crate::positioning::{
@@ -19,7 +18,6 @@ use crate::positioning::{
 };
 use crate::resources::{DiscardPile, GameState};
 use crate::states::AppState;
-use crate::tokens::Tokens;
 
 #[derive(Clone)]
 pub struct Deck {

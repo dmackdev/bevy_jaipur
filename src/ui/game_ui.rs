@@ -6,10 +6,10 @@ use crate::{
     card_selection::SelectedCardState,
     event::ConfirmTurnEvent,
     game::{ActivePlayer, TokensOwner},
+    game_resources::tokens::Tokens,
     label::Label,
     move_validation::MoveValidity,
     states::{AppState, TurnState},
-    tokens::Tokens,
 };
 
 #[derive(Debug, Copy, Clone)]

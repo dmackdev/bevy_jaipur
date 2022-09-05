@@ -5,10 +5,11 @@ use itertools::Itertools;
 use std::cmp::Reverse;
 use std::time::Duration;
 
-use crate::card::*;
 use crate::card_selection::SelectedCard;
 use crate::event::ConfirmTurnEvent;
 use crate::game::*;
+use crate::game_resources::card::*;
+use crate::game_resources::tokens::{BonusType, Tokens};
 use crate::label::Label;
 use crate::move_validation::MoveType;
 use crate::positioning::{
@@ -17,7 +18,6 @@ use crate::positioning::{
 };
 use crate::resources::{DiscardPile, GameState};
 use crate::states::AppState;
-use crate::tokens::{BonusType, Tokens};
 
 #[allow(clippy::too_many_arguments)]
 fn handle_take_single_good_move_confirmed(

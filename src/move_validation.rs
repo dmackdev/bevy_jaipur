@@ -2,8 +2,10 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    card::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard},
     card_selection::{SelectedCard, SelectedCardState},
+    game_resources::card::{
+        ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, CardType, GoodType, MarketCard,
+    },
     states::TurnState,
 };
 
