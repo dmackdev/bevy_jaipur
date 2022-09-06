@@ -22,6 +22,7 @@ use crate::states::AppState;
 #[allow(clippy::too_many_arguments)]
 fn handle_when_resources_ready(
     mut state: ResMut<State<AppState>>,
+    game_state: Res<GameState>,
     deck: Option<Res<Deck>>,
     market: Option<Res<Market>>,
     tokens: Option<Res<Tokens>>,
@@ -40,8 +41,10 @@ fn handle_when_resources_ready(
         && move_validity.is_some()
         && discard_pile.is_some();
 
-    if resources_are_ready {
-        state.set(AppState::TurnTransition).unwrap();
+    match (resources_are_ready, game_state.is_playing_ai) {
+        (true, true) => state.set(AppState::InGame).unwrap(),
+        (true, false) => state.set(AppState::TurnTransition).unwrap(),
+        _ => {}
     }
 }
 
@@ -531,8 +534,7 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GameState>()
-            .add_plugin(CardSelectionPlugin)
+        app.add_plugin(CardSelectionPlugin)
             .add_plugin(MoveValidationPlugin)
             .add_plugin(MoveExecutionPlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
