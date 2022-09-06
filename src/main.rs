@@ -15,6 +15,7 @@ use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_interact_2d::{Group, InteractionSource};
 use event::EventsPlugin;
 use game::*;
+use resources::GameState;
 use states::{AppState, TurnState};
 use ui::game_ui::GameUiPlugin;
 use ui::main_menu::MainMenuPlugin;
@@ -30,6 +31,7 @@ fn main() {
             resizable: true,
             ..default()
         })
+        .init_resource::<GameState>()
         .add_plugins(DefaultPlugins)
         .add_plugin(EventsPlugin)
         .add_state(AppState::MainMenu)

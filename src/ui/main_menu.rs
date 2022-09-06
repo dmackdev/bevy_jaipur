@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{common_systems::despawn_entity_with_component, states::AppState};
+use crate::{
+    common_systems::despawn_entity_with_component, resources::GameState, states::AppState,
+};
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -10,15 +12,16 @@ const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 struct MenuRootNode;
 
 trait ClickHandler {
-    fn on_click(self, state: &mut ResMut<State<AppState>>);
+    fn on_click(self, state: &mut ResMut<State<AppState>>, game_state: &mut ResMut<GameState>);
 }
 
 #[derive(Component, Copy, Clone)]
 struct PlayLocalMultiplayerButton;
 
 impl ClickHandler for PlayLocalMultiplayerButton {
-    fn on_click(self, state: &mut ResMut<State<AppState>>) {
+    fn on_click(self, state: &mut ResMut<State<AppState>>, game_state: &mut ResMut<GameState>) {
         state.set(AppState::InitGame).unwrap();
+        game_state.is_playing_ai = false;
     }
 }
 
@@ -26,8 +29,9 @@ impl ClickHandler for PlayLocalMultiplayerButton {
 struct PlayAIButton;
 
 impl ClickHandler for PlayAIButton {
-    fn on_click(self, state: &mut ResMut<State<AppState>>) {
+    fn on_click(self, state: &mut ResMut<State<AppState>>, game_state: &mut ResMut<GameState>) {
         state.set(AppState::InitGame).unwrap();
+        game_state.is_playing_ai = true;
     }
 }
 
@@ -100,6 +104,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_menu_interaction<T: ClickHandler + Component + Copy>(
     mut state: ResMut<State<AppState>>,
+    mut game_state: ResMut<GameState>,
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, &T),
         (Changed<Interaction>, With<Button>),
@@ -109,7 +114,7 @@ fn handle_menu_interaction<T: ClickHandler + Component + Copy>(
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON.into();
-                click_handler.on_click(&mut state);
+                click_handler.on_click(&mut state, &mut game_state);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
