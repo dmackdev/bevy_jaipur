@@ -10,15 +10,27 @@ const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 struct MenuRootNode;
 
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
+    let root_node_entity = commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            color: Color::GRAY.into(),
+            ..default()
+        })
+        .insert(MenuRootNode)
+        .id();
+
+    let play_human_button_entity = commands
         .spawn_bundle(ButtonBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                // center button
-                margin: UiRect::all(Val::Auto),
-                // horizontally center child text
+                margin: UiRect::all(Val::Px(10.0)),
+                padding: UiRect::all(Val::Px(10.0)),
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -27,7 +39,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle::from_section(
-                "Play",
+                "Play Local Multiplayer",
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 40.0,
@@ -35,7 +47,35 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ));
         })
-        .insert(MenuRootNode);
+        .id();
+
+    let play_ai_button_entity = commands
+        .spawn_bundle(ButtonBundle {
+            style: Style {
+                margin: UiRect::all(Val::Px(10.0)),
+                padding: UiRect::all(Val::Px(10.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            color: NORMAL_BUTTON.into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(TextBundle::from_section(
+                "Play Computer",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                },
+            ));
+        })
+        .id();
+
+    commands
+        .entity(root_node_entity)
+        .push_children(&[play_human_button_entity, play_ai_button_entity]);
 }
 
 fn handle_menu_interaction(
