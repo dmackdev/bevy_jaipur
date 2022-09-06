@@ -1,17 +1,16 @@
 use bevy::prelude::*;
 
-use crate::states::AppState;
+use crate::{common_systems::despawn_entity_with_component, states::AppState};
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-struct MenuData {
-    button_entity: Entity,
-}
+#[derive(Component)]
+struct MenuRootNode;
 
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let button_entity = commands
+    commands
         .spawn_bundle(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
@@ -36,8 +35,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ));
         })
-        .id();
-    commands.insert_resource(MenuData { button_entity });
+        .insert(MenuRootNode);
 }
 
 fn handle_menu_interaction(
@@ -63,10 +61,6 @@ fn handle_menu_interaction(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
-}
-
 pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
@@ -75,6 +69,9 @@ impl Plugin for MainMenuPlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::MainMenu).with_system(handle_menu_interaction),
             )
-            .add_system_set(SystemSet::on_exit(AppState::MainMenu).with_system(cleanup_menu));
+            .add_system_set(
+                SystemSet::on_exit(AppState::MainMenu)
+                    .with_system(despawn_entity_with_component::<MenuRootNode>),
+            );
     }
 }
