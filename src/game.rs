@@ -543,7 +543,9 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_enter(AppState::TurnTransition)
-                    .with_system(setup_turn_transition_screen),
+                    .with_system(setup_turn_transition_screen)
+                    .with_system(update_active_player)
+                    .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::TurnTransition)
@@ -553,12 +555,8 @@ impl Plugin for GamePlugin {
                 SystemSet::on_exit(AppState::TurnTransition)
                     .with_system(despawn_entity_with_component::<TurnTransitionScreen>),
             )
+            .add_system_set(SystemSet::on_enter(AppState::AiTurn).with_system(update_active_player))
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
-            .add_system_set(
-                SystemSet::on_exit(AppState::WaitForTweensToFinish)
-                    .with_system(update_active_player)
-                    .with_system(despawn_entity_with_component::<GameRoot>),
-            )
             .add_system_set(
                 SystemSet::on_enter(AppState::GameOver).with_system(setup_game_over_screen),
             );

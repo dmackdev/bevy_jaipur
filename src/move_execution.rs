@@ -455,6 +455,8 @@ fn wait_for_tweens_to_finish(
 
         if game_state.is_game_over {
             app_state.set(AppState::GameOver).unwrap();
+        } else if game_state.is_playing_ai {
+            app_state.set(AppState::AiTurn).unwrap();
         } else {
             app_state.set(AppState::TurnTransition).unwrap();
         }
