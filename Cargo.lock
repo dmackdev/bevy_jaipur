@@ -492,6 +492,7 @@ dependencies = [
  "bevy_interact_2d",
  "bevy_prototype_lyon",
  "bevy_tweening",
+ "big-brain",
  "enum-map",
  "itertools",
  "rand",
@@ -863,6 +864,15 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "winit",
+]
+
+[[package]]
+name = "big-brain"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb8ca33c6f0a25aa9dcff1aa98a97c1c26d83ff709a3f36fd6d83c3f098d05e8"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

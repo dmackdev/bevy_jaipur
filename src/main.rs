@@ -1,3 +1,4 @@
+mod ai;
 mod card_selection;
 mod common_systems;
 mod event;
