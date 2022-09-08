@@ -470,20 +470,19 @@ fn wait_for_tweens_to_finish(
     if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
         tween_state.did_all_tweens_complete = false;
 
+        let (active_player_entity, ai_player_option) = active_player_query.single();
+        let is_current_player_ai = ai_player_option.is_some();
+        let inactive_player_entity = inactive_player_query.single();
+
+        commands
+            .entity(active_player_entity)
+            .remove::<ActivePlayer>();
+
+        commands.entity(inactive_player_entity).insert(ActivePlayer);
+
         if game_state.is_game_over {
             app_state.set(AppState::GameOver).unwrap();
         } else if game_state.is_playing_ai {
-            let is_current_player_ai = active_player_query.single().1.is_some();
-
-            let active_player_entity = active_player_query.single();
-            let inactive_player_entity = inactive_player_query.single();
-
-            commands
-                .entity(active_player_entity.0)
-                .remove::<ActivePlayer>();
-
-            commands.entity(inactive_player_entity).insert(ActivePlayer);
-
             if is_current_player_ai {
                 println!("TRANSITION TO PLAYER MOVE");
                 app_state.set(AppState::InGame).unwrap();

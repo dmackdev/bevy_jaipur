@@ -538,23 +538,6 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     (camels.len(), goods)
 }
 
-// TODO: Move to wait for tweens to finish
-fn update_active_player(
-    mut commands: Commands,
-    active_player_query: Query<Entity, With<ActivePlayer>>,
-    inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
-) {
-    println!("UDPATE ACTIVE PLAYER");
-    let active_player_entity = active_player_query.single();
-    let inactive_player_entity = inactive_player_query.single();
-
-    commands
-        .entity(active_player_entity)
-        .remove::<ActivePlayer>();
-
-    commands.entity(inactive_player_entity).insert(ActivePlayer);
-}
-
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -573,8 +556,7 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_enter(AppState::TurnTransition)
-                    .with_system(update_active_player)
-                    .with_system(setup_turn_transition_screen.after(update_active_player))
+                    .with_system(setup_turn_transition_screen)
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(
