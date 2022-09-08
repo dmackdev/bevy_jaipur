@@ -17,7 +17,7 @@ use crate::label::Label;
 use crate::move_validation::MoveType;
 use crate::positioning::{
     get_active_player_camel_card_translation, get_active_player_goods_card_translation,
-    get_market_card_translation, DISCARD_PILE_POS,
+    get_ai_player_goods_card_translation, get_market_card_translation, DISCARD_PILE_POS,
 };
 use crate::resources::GameState;
 use crate::states::AppState;
@@ -37,6 +37,7 @@ fn handle_take_single_good_move_confirmed(
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -54,13 +55,21 @@ fn handle_take_single_good_move_confirmed(
         // add to active player goods hand
         active_player_goods_hand.0.push(good);
 
+        let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+        let end = if is_ai_turn {
+            get_ai_player_goods_card_translation(active_player_goods_hand.0.len() - 1)
+        } else {
+            get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1)
+        };
+
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             TweeningType::Once,
             Duration::from_secs(2),
             TransformPositionLens {
                 start: transform.translation,
-                end: get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1),
+                end,
             },
         )
         .with_completed_event(1);
@@ -70,8 +79,13 @@ fn handle_take_single_good_move_confirmed(
         commands
             .entity(card_entity)
             .insert(Animator::new(tween))
-            .remove::<MarketCard>()
-            .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
+            .remove::<MarketCard>();
+
+        if !is_ai_turn {
+            commands
+                .entity(card_entity)
+                .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
+        }
 
         // Replace with card from deck
         if let Some(replacement_card) = deck.cards.pop() {
@@ -430,12 +444,15 @@ pub struct TweenState {
 pub struct ScreenTransitionDelayTimer(Timer);
 
 fn wait_for_tweens_to_finish(
+    mut commands: Commands,
     mut ev_tween_completed: EventReader<TweenCompleted>,
     mut tween_state: ResMut<TweenState>,
     mut app_state: ResMut<State<AppState>>,
     time: Res<Time>,
     mut timer: ResMut<ScreenTransitionDelayTimer>,
     game_state: Res<GameState>,
+    active_player_query: Query<(Entity, Option<&AiPlayer>), With<ActivePlayer>>,
+    inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
 ) {
     for ev in ev_tween_completed.iter() {
         let index = tween_state
@@ -456,7 +473,24 @@ fn wait_for_tweens_to_finish(
         if game_state.is_game_over {
             app_state.set(AppState::GameOver).unwrap();
         } else if game_state.is_playing_ai {
-            app_state.set(AppState::AiTurn).unwrap();
+            let is_current_player_ai = active_player_query.single().1.is_some();
+
+            let active_player_entity = active_player_query.single();
+            let inactive_player_entity = inactive_player_query.single();
+
+            commands
+                .entity(active_player_entity.0)
+                .remove::<ActivePlayer>();
+
+            commands.entity(inactive_player_entity).insert(ActivePlayer);
+
+            if is_current_player_ai {
+                println!("TRANSITION TO PLAYER MOVE");
+                app_state.set(AppState::InGame).unwrap();
+            } else {
+                println!("TRANSITION TO AI MOVE");
+                app_state.set(AppState::AiTurn).unwrap();
+            }
         } else {
             app_state.set(AppState::TurnTransition).unwrap();
         }
@@ -470,8 +504,41 @@ impl Plugin for MoveExecutionPlugin {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
             .init_resource::<TweenState>()
             .add_plugin(TweeningPlugin)
+            // TODO: since these respond to events, can remove the AppState stage criteria. see if you can apply the labels to the whole system set instead of each system
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(
+                        handle_take_single_good_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_take_all_camels_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_exchange_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_sell_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_confirm_turn_event
+                            .label(Label::EventReader)
+                            .after(Label::EventWriter),
+                    ),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::AiTurn)
                     .with_system(
                         handle_take_single_good_move_confirmed
                             .label(Label::EventReader)

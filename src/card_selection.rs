@@ -134,10 +134,15 @@ fn remove_card_selections_on_confirm_turn(
     mut commands: Commands,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
     selected_cards_query: Query<Entity, With<SelectedCard>>,
+    interactable_cards_query: Query<Entity, (With<Card>, With<Interactable>)>,
 ) {
     for _ev in ev_confirm_turn.iter() {
         for entity in selected_cards_query.iter() {
             commands.entity(entity).remove::<SelectedCard>();
+        }
+
+        for entity in interactable_cards_query.iter() {
+            commands.entity(entity).remove::<Interactable>();
         }
     }
 }
@@ -200,6 +205,13 @@ impl Plugin for CardSelectionPlugin {
                             .label(Label::EventReader)
                             .after(Label::EventWriter),
                     ),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::AiTurn).with_system(
+                    remove_card_selections_on_confirm_turn
+                        .label(Label::EventReader)
+                        .after(Label::EventWriter),
+                ),
             )
             .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
             .add_system_set(SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action))

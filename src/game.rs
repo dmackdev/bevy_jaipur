@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use itertools::{Either, Itertools};
 use std::cmp::Ordering;
 
+use crate::ai::JaipurAiPlugin;
 use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
 use crate::game_resources::card::*;
@@ -288,7 +289,7 @@ struct PlayerStats {
     camel_bonus_awarded: bool,
 }
 
-fn setup_game(mut commands: Commands) {
+fn setup_game(mut commands: Commands, game_state: Res<GameState>) {
     let mut deck = Deck::default();
     let market = Market::new(&mut deck);
     let tokens = Tokens::create_game_tokens();
@@ -307,11 +308,17 @@ fn setup_game(mut commands: Commands) {
         ))
         .insert(ActivePlayer);
 
-    commands.spawn_bundle(PlayerBundle::new(
-        "Player 2".to_string(),
-        player_two_goods_hand,
-        player_two_num_camels,
-    ));
+    let second_player_entity = commands
+        .spawn_bundle(PlayerBundle::new(
+            "Player 2".to_string(),
+            player_two_goods_hand,
+            player_two_num_camels,
+        ))
+        .id();
+
+    if game_state.is_playing_ai {
+        commands.entity(second_player_entity).insert(AiPlayer);
+    }
 
     commands.insert_resource(deck);
     commands.insert_resource(market);
@@ -325,7 +332,16 @@ struct GameRoot;
 #[derive(Component)]
 pub struct DeckCard(pub usize);
 
+fn pass_through() -> bool {
+    true
+}
+
+fn run_if_ai_mode(game_state: Res<GameState>) -> bool {
+    game_state.is_playing_ai
+}
+
 fn setup_game_screen(
+    In(should_setup): In<bool>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     deck: Res<Deck>,
@@ -334,6 +350,10 @@ fn setup_game_screen(
     active_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), With<ActivePlayer>>,
     inactive_player_query: Query<(&GoodsHandOwner, &CamelsHandOwner), Without<ActivePlayer>>,
 ) {
+    if !should_setup {
+        return;
+    }
+
     let game_root_entity = commands
         .spawn_bundle(SpatialBundle::default())
         .insert(GameRoot)
@@ -470,6 +490,9 @@ fn setup_game_screen(
 pub struct Player;
 
 #[derive(Component)]
+pub struct AiPlayer;
+
+#[derive(Component)]
 pub struct PlayerName(pub String);
 
 #[derive(Component)]
@@ -515,11 +538,13 @@ fn partition_hand(hand: Vec<CardType>) -> (usize, Vec<GoodType>) {
     (camels.len(), goods)
 }
 
+// TODO: Move to wait for tweens to finish
 fn update_active_player(
     mut commands: Commands,
     active_player_query: Query<Entity, With<ActivePlayer>>,
     inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
 ) {
+    println!("UDPATE ACTIVE PLAYER");
     let active_player_entity = active_player_query.single();
     let inactive_player_entity = inactive_player_query.single();
 
@@ -537,14 +562,19 @@ impl Plugin for GamePlugin {
         app.add_plugin(CardSelectionPlugin)
             .add_plugin(MoveValidationPlugin)
             .add_plugin(MoveExecutionPlugin)
+            .add_plugin(JaipurAiPlugin)
             .add_system_set(SystemSet::on_enter(AppState::InitGame).with_system(setup_game))
             .add_system_set(
                 SystemSet::on_update(AppState::InitGame).with_system(handle_when_resources_ready),
             )
             .add_system_set(
+                SystemSet::on_exit(AppState::InitGame)
+                    .with_system(run_if_ai_mode.chain(setup_game_screen)),
+            )
+            .add_system_set(
                 SystemSet::on_enter(AppState::TurnTransition)
-                    .with_system(setup_turn_transition_screen)
                     .with_system(update_active_player)
+                    .with_system(setup_turn_transition_screen.after(update_active_player))
                     .with_system(despawn_entity_with_component::<GameRoot>),
             )
             .add_system_set(
@@ -553,10 +583,9 @@ impl Plugin for GamePlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(AppState::TurnTransition)
-                    .with_system(despawn_entity_with_component::<TurnTransitionScreen>),
+                    .with_system(despawn_entity_with_component::<TurnTransitionScreen>)
+                    .with_system(pass_through.chain(setup_game_screen)),
             )
-            .add_system_set(SystemSet::on_enter(AppState::AiTurn).with_system(update_active_player))
-            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game_screen))
             .add_system_set(
                 SystemSet::on_enter(AppState::GameOver).with_system(setup_game_over_screen),
             );
