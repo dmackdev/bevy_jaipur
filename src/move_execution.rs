@@ -224,6 +224,7 @@ fn handle_exchange_goods_move_confirmed(
         (Entity, &Transform),
         (With<ActivePlayerCamelCard>, With<SelectedCard>),
     >,
+    all_player_camel_cards: Query<(Entity, &ActivePlayerCamelCard, &Transform)>,
     active_player_selected_goods_card: Query<
         (Entity, &ActivePlayerGoodsCard, &Transform),
         With<SelectedCard>,
@@ -343,6 +344,51 @@ fn handle_exchange_goods_move_confirmed(
                 .insert(Animator::new(tween_market_to_hand))
                 .remove::<MarketCard>()
                 .insert(ActivePlayerGoodsCard(goods_hand_owner.0.len() - 1));
+        }
+
+        let exchanged_camel_entities = active_player_selected_camel_cards
+            .iter()
+            .map(|(e, _)| e)
+            .collect::<Vec<_>>();
+
+        let unexchanged_camel_cards = all_player_camel_cards
+            .iter()
+            .filter(|(e, _, _)| !exchanged_camel_entities.contains(e))
+            .collect::<Vec<_>>();
+
+        let current_indices_ordered = unexchanged_camel_cards
+            .iter()
+            .map(|(_, camel_card, _)| camel_card.0)
+            .sorted()
+            .collect::<Vec<_>>();
+
+        for (e, camel_card, transform) in unexchanged_camel_cards {
+            let index_in_hand = camel_card.0;
+            let correct_index = current_indices_ordered
+                .iter()
+                .position(|i| *i == index_in_hand)
+                .unwrap();
+
+            if index_in_hand != correct_index {
+                let tween_shift_in_hand = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end: get_active_player_camel_card_translation(correct_index),
+                    },
+                )
+                .with_completed_event(e.to_bits());
+
+                tween_state.tweening_entities.push(e);
+
+                commands
+                    .entity(e)
+                    .insert(Animator::new(tween_shift_in_hand))
+                    .remove::<ActivePlayerCamelCard>()
+                    .insert(ActivePlayerCamelCard(correct_index));
+            }
         }
     }
 }
