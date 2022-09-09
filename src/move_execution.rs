@@ -357,6 +357,7 @@ fn handle_sell_goods_move_confirmed(
         (Entity, &ActivePlayerGoodsCard, &Transform),
         With<SelectedCard>,
     >,
+    all_active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard, &Transform)>,
     mut active_player_query: Query<(&mut GoodsHandOwner, &mut TokensOwner), With<ActivePlayer>>,
     mut game_state: ResMut<GameState>,
 ) {
@@ -399,6 +400,53 @@ fn handle_sell_goods_move_confirmed(
                 tokens_owner.0.goods[sold_card].push(val);
             }
         }
+
+        // As we have just sold cards and removed them from the hand, the current indices of ActivePlayerGoodsCards may be misaligned to the index of the card in the hand
+        let sold_entities: Vec<Entity> = active_player_selected_goods_card
+            .iter()
+            .map(|(e, _, _)| e)
+            .collect();
+
+        let unsold_goods_cards = all_active_player_goods_cards
+            .iter()
+            .filter(|(e, _, _)| !sold_entities.contains(e))
+            .collect::<Vec<_>>();
+
+        let current_indices_ordered = unsold_goods_cards
+            .iter()
+            .map(|(_, active_player_good_card, _)| active_player_good_card.0)
+            .sorted()
+            .collect::<Vec<_>>();
+
+        for (e, active_player_good_card, transform) in unsold_goods_cards {
+            let index_in_hand = active_player_good_card.0;
+            let correct_index = current_indices_ordered
+                .iter()
+                .position(|i| *i == index_in_hand)
+                .unwrap();
+
+            if index_in_hand != correct_index {
+                let tween_shift_in_hand = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end: get_active_player_goods_card_translation(correct_index),
+                    },
+                )
+                .with_completed_event(e.to_bits());
+
+                tween_state.tweening_entities.push(e);
+
+                commands
+                    .entity(e)
+                    .insert(Animator::new(tween_shift_in_hand))
+                    .remove::<ActivePlayerGoodsCard>()
+                    .insert(ActivePlayerGoodsCard(correct_index));
+            }
+        }
+
         let num_cards_sold = active_player_selected_goods_card.iter().count();
         let bonus_type = match num_cards_sold {
             d if d == 3 => Some(BonusType::Three),
