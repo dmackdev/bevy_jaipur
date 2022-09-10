@@ -59,21 +59,31 @@ pub fn sell_goods_scorer_system(
     mut scorer_states_query: Query<&mut SellGoodsScorerState>,
     active_player_goods_hand_query: Query<Entity, With<ActivePlayerGoodsCard>>,
 ) {
-    if !matches!(app_state.current(), AppState::AiTurn) {
-        return;
-    }
+    use rand::Rng;
+
+    let mut rng = rand::thread_rng();
 
     for (Actor(actor), mut score) in query.iter_mut() {
-        if let Ok(mut scorer_state) = scorer_states_query.get_mut(*actor) {
-            let good = active_player_goods_hand_query
-                .iter()
-                .last()
-                .expect("TODO: handle me better");
+        let mut scorer_state = scorer_states_query.get_mut(*actor).unwrap();
 
-            scorer_state.card_entities = Some(vec![good]);
-            score.set(1.0);
-        } else {
+        if !matches!(app_state.current(), AppState::AiTurn) {
+            scorer_state.card_entities = None;
             score.set(0.0);
+            continue;
+        }
+
+        let good_to_sell = active_player_goods_hand_query.iter().last();
+
+        match good_to_sell {
+            Some(e) => {
+                scorer_state.card_entities = Some(vec![e]);
+                score.set(rng.gen_range(0..=1) as f32);
+            }
+            None => {
+                println!("NO GOOD TO SELL");
+                scorer_state.card_entities = None;
+                score.set(0.0);
+            }
         }
     }
 }
