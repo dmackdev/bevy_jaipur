@@ -1,9 +1,5 @@
 use bevy::prelude::*;
-use big_brain::{
-    prelude::{ActionBuilder, ActionState},
-    scorers::Score,
-    thinker::Actor,
-};
+use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
 
 use crate::{
     card_selection::SelectedCard,
@@ -15,26 +11,6 @@ use crate::{
 
 #[derive(Component, Debug, Clone)]
 pub struct TakeSingleGoodAction;
-
-impl TakeSingleGoodAction {
-    pub fn build() -> TakeSingleGoodActionBuilder {
-        TakeSingleGoodActionBuilder
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TakeSingleGoodActionBuilder;
-
-impl ActionBuilder for TakeSingleGoodActionBuilder {
-    fn build(
-        &self,
-        cmd: &mut bevy::prelude::Commands,
-        action: bevy::prelude::Entity,
-        actor: bevy::prelude::Entity,
-    ) {
-        cmd.entity(action).insert(TakeSingleGoodAction);
-    }
-}
 
 pub fn take_single_good_action_system(
     mut commands: Commands,
