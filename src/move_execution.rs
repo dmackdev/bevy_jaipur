@@ -57,6 +57,7 @@ fn handle_take_single_good_move_confirmed(
 
         let is_ai_turn = *app_state.current() == AppState::AiTurn;
 
+        // TODO: implement these as methods on a Player component?
         let end = if is_ai_turn {
             get_ai_player_goods_card_translation(active_player_goods_hand.0.len() - 1)
         } else {
@@ -406,6 +407,7 @@ fn handle_sell_goods_move_confirmed(
     all_active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard, &Transform)>,
     mut active_player_query: Query<(&mut GoodsHandOwner, &mut TokensOwner), With<ActivePlayer>>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -472,13 +474,22 @@ fn handle_sell_goods_move_confirmed(
                 .unwrap();
 
             if index_in_hand != correct_index {
+                let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+                // TODO: implement these as methods on a Player component?
+                let end = if is_ai_turn {
+                    get_ai_player_goods_card_translation(correct_index)
+                } else {
+                    get_active_player_goods_card_translation(correct_index)
+                };
+
                 let tween_shift_in_hand = Tween::new(
                     EaseFunction::QuadraticInOut,
                     TweeningType::Once,
                     Duration::from_secs(2),
                     TransformPositionLens {
                         start: transform.translation,
-                        end: get_active_player_goods_card_translation(correct_index),
+                        end,
                     },
                 )
                 .with_completed_event(e.to_bits());
