@@ -547,6 +547,10 @@ fn wait_for_tweens_to_finish(
     game_state: Res<GameState>,
     active_player_query: Query<(Entity, Option<&AiPlayer>), With<ActivePlayer>>,
     inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
+    active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard)>,
+    active_player_camel_cards: Query<(Entity, &ActivePlayerCamelCard)>,
+    inactive_player_goods_cards: Query<(Entity, &InactivePlayerGoodsCard)>,
+    inactive_player_camel_cards: Query<(Entity, &InactivePlayerCamelCard)>,
 ) {
     for ev in ev_tween_completed.iter() {
         let index = tween_state
@@ -573,6 +577,34 @@ fn wait_for_tweens_to_finish(
             .remove::<ActivePlayer>();
 
         commands.entity(inactive_player_entity).insert(ActivePlayer);
+
+        for (e, active_good) in active_player_goods_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<ActivePlayerGoodsCard>()
+                .insert(InactivePlayerGoodsCard(active_good.0));
+        }
+
+        for (e, active_camel) in active_player_camel_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<ActivePlayerCamelCard>()
+                .insert(InactivePlayerCamelCard(active_camel.0));
+        }
+
+        for (e, inactive_good) in inactive_player_goods_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<InactivePlayerGoodsCard>()
+                .insert(ActivePlayerGoodsCard(inactive_good.0));
+        }
+
+        for (e, inactive_camel) in inactive_player_camel_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<InactivePlayerCamelCard>()
+                .insert(ActivePlayerCamelCard(inactive_camel.0));
+        }
 
         if game_state.is_game_over {
             app_state.set(AppState::GameOver).unwrap();
