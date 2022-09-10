@@ -4,9 +4,14 @@ use big_brain::{thinker::Thinker, BigBrainPlugin, BigBrainStage};
 use crate::label::Label;
 
 use super::{
-    model::take_single_good::{
-        take_single_good_action_system, take_single_good_scorer_system, TakeSingleGoodAction,
-        TakeSingleGoodScorer,
+    model::{
+        sell_goods::{
+            sell_goods_action_system, sell_goods_scorer_system, SellGoodsAction, SellGoodsScorer,
+        },
+        take_single_good::{
+            take_single_good_action_system, take_single_good_scorer_system, TakeSingleGoodAction,
+            TakeSingleGoodScorer,
+        },
     },
     picker::highest_score::HighestScorePicker,
 };
@@ -15,7 +20,8 @@ pub fn init(mut commands: Commands) {
     commands.spawn().insert(
         Thinker::build()
             .picker(HighestScorePicker { threshold: 0.1 })
-            .when(TakeSingleGoodScorer, TakeSingleGoodAction),
+            .when(TakeSingleGoodScorer, TakeSingleGoodAction)
+            .when(SellGoodsScorer, SellGoodsAction),
     );
 }
 
@@ -25,10 +31,18 @@ impl Plugin for JaipurAiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(BigBrainPlugin)
             .add_startup_system(init)
-            .add_system_to_stage(
+            .add_system_set_to_stage(
                 BigBrainStage::Actions,
-                take_single_good_action_system.label(Label::EventWriter),
+                SystemSet::new()
+                    .label(Label::EventWriter)
+                    .with_system(take_single_good_action_system)
+                    .with_system(sell_goods_action_system),
             )
-            .add_system_to_stage(BigBrainStage::Scorers, take_single_good_scorer_system);
+            .add_system_set_to_stage(
+                BigBrainStage::Scorers,
+                SystemSet::new()
+                    .with_system(take_single_good_scorer_system)
+                    .with_system(sell_goods_scorer_system),
+            );
     }
 }

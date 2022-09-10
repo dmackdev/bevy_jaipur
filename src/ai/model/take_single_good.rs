@@ -78,6 +78,6 @@ pub fn take_single_good_scorer_system(
     mut query: Query<(&Actor, &mut Score), With<TakeSingleGoodScorer>>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
-        score.set(1.0);
+        score.set(0.5);
     }
 }
