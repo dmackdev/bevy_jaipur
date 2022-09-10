@@ -11,7 +11,7 @@ use super::{
         },
         take_single_good::{
             take_single_good_action_system, take_single_good_scorer_system, TakeSingleGoodAction,
-            TakeSingleGoodScorer,
+            TakeSingleGoodScorer, TakeSingleGoodScorerState,
         },
     },
     picker::highest_score::HighestScorePicker,
@@ -21,6 +21,7 @@ pub fn init(mut commands: Commands) {
     commands
         .spawn()
         .insert(SellGoodsScorerState::default())
+        .insert(TakeSingleGoodScorerState::default())
         .insert(
             Thinker::build()
                 .picker(HighestScorePicker { threshold: 0.1 })
