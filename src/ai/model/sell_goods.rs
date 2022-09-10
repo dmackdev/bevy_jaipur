@@ -9,9 +9,6 @@ use crate::{
 #[derive(Component, Debug, Clone)]
 pub struct SellGoodsAction;
 
-#[derive(Debug, Clone)]
-pub struct SellGoodsActionBuilder;
-
 pub fn sell_goods_action_system(
     mut commands: Commands,
     app_state: Res<State<AppState>>,
