@@ -80,13 +80,8 @@ fn handle_take_single_good_move_confirmed(
         commands
             .entity(card_entity)
             .insert(Animator::new(tween))
-            .remove::<MarketCard>();
-
-        if !is_ai_turn {
-            commands
-                .entity(card_entity)
-                .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
-        }
+            .remove::<MarketCard>()
+            .insert(ActivePlayerGoodsCard(active_player_goods_hand.0.len() - 1));
 
         // Replace with card from deck
         if let Some(replacement_card) = deck.cards.pop() {
