@@ -1,16 +1,14 @@
 use bevy::prelude::*;
 use big_brain::{
-    prelude::{ActionBuilder, ActionState, FirstToScore},
+    prelude::{ActionBuilder, ActionState},
     scorers::Score,
-    thinker::{Actor, Thinker},
-    BigBrainPlugin, BigBrainStage,
+    thinker::Actor,
 };
 
 use crate::{
     card_selection::SelectedCard,
     event::ConfirmTurnEvent,
     game_resources::card::{Card, CardType, MarketCard},
-    label::Label,
     move_validation::MoveType,
     states::AppState,
 };
@@ -38,7 +36,7 @@ impl ActionBuilder for TakeSingleGoodActionBuilder {
     }
 }
 
-fn take_single_good_action_system(
+pub fn take_single_good_action_system(
     mut commands: Commands,
     app_state: Res<State<AppState>>,
     all_market_cards_query: Query<(Entity, &Card), With<MarketCard>>,
@@ -81,27 +79,5 @@ pub fn take_single_good_scorer_system(
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
         score.set(1.0);
-    }
-}
-
-pub fn init(mut commands: Commands) {
-    commands.spawn().insert(
-        Thinker::build()
-            .picker(FirstToScore { threshold: 0.1 })
-            .when(TakeSingleGoodScorer, TakeSingleGoodAction),
-    );
-}
-
-pub struct JaipurAiPlugin;
-
-impl Plugin for JaipurAiPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(BigBrainPlugin)
-            .add_startup_system(init)
-            .add_system_to_stage(
-                BigBrainStage::Actions,
-                take_single_good_action_system.label(Label::EventWriter),
-            )
-            .add_system_to_stage(BigBrainStage::Scorers, take_single_good_scorer_system);
     }
 }

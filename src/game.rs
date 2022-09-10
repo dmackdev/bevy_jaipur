@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use itertools::{Either, Itertools};
 use std::cmp::Ordering;
 
-use crate::ai::JaipurAiPlugin;
+use crate::ai::plugin::JaipurAiPlugin;
 use crate::card_selection::{CardSelectionPlugin, SelectedCardState};
 use crate::common_systems::despawn_entity_with_component;
 use crate::game_resources::card::*;
