@@ -61,3 +61,9 @@ pub struct ActivePlayerGoodsCard(pub usize);
 
 #[derive(Component)]
 pub struct ActivePlayerCamelCard(pub usize);
+
+#[derive(Component)]
+pub struct InactivePlayerGoodsCard(pub usize);
+
+#[derive(Component)]
+pub struct InactivePlayerCamelCard(pub usize);

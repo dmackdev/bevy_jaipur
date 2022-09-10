@@ -445,7 +445,7 @@ fn setup_game_screen(
 
     let (inactive_player_goods_hand, inactive_player_camels_hand) = inactive_player_query.single();
 
-    for idx in 0..inactive_player_goods_hand.0.len() {
+    for (idx, good) in inactive_player_goods_hand.0.iter().enumerate() {
         let inactive_player_goods_hand_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load("textures/card/back.png"),
@@ -457,6 +457,8 @@ fn setup_game_screen(
                     .with_rotation(Quat::from_rotation_z((180.0_f32).to_radians())),
                 ..default()
             })
+            .insert(Card(CardType::Good(*good)))
+            .insert(InactivePlayerGoodsCard(idx))
             .id();
 
         commands
@@ -478,6 +480,8 @@ fn setup_game_screen(
 
                 ..default()
             })
+            .insert(Card(CardType::Camel))
+            .insert(InactivePlayerCamelCard(0))
             .id();
 
         commands
