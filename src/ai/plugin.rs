@@ -7,6 +7,7 @@ use super::{
     model::{
         sell_goods::{
             sell_goods_action_system, sell_goods_scorer_system, SellGoodsAction, SellGoodsScorer,
+            SellGoodsScorerState,
         },
         take_single_good::{
             take_single_good_action_system, take_single_good_scorer_system, TakeSingleGoodAction,
@@ -17,12 +18,15 @@ use super::{
 };
 
 pub fn init(mut commands: Commands) {
-    commands.spawn().insert(
-        Thinker::build()
-            .picker(HighestScorePicker { threshold: 0.1 })
-            .when(TakeSingleGoodScorer, TakeSingleGoodAction)
-            .when(SellGoodsScorer, SellGoodsAction),
-    );
+    commands
+        .spawn()
+        .insert(SellGoodsScorerState::default())
+        .insert(
+            Thinker::build()
+                .picker(HighestScorePicker { threshold: 0.1 })
+                .when(TakeSingleGoodScorer, TakeSingleGoodAction)
+                .when(SellGoodsScorer, SellGoodsAction),
+        );
 }
 
 pub struct JaipurAiPlugin;
