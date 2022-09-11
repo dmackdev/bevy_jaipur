@@ -14,8 +14,8 @@ use crate::move_execution::{MoveExecutionPlugin, ScreenTransitionDelayTimer, Twe
 use crate::move_validation::{MoveValidationPlugin, MoveValidity};
 use crate::positioning::{
     get_active_player_camel_card_translation, get_active_player_goods_card_translation,
-    get_market_card_translation, CARD_DIMENSION, CARD_PADDING, DECK_START_POS, DISCARD_PILE_POS,
-    INACTIVE_PLAYER_GOODS_HAND_START_POS,
+    get_market_card_translation, get_opponent_camel_hand_translation, CARD_DIMENSION, CARD_PADDING,
+    DECK_START_POS, DISCARD_PILE_POS, INACTIVE_PLAYER_GOODS_HAND_START_POS,
 };
 use crate::resources::GameState;
 use crate::states::AppState;
@@ -466,17 +466,15 @@ fn setup_game_screen(
             .add_child(inactive_player_goods_hand_entity);
     }
 
-    if inactive_player_camels_hand.0 > 0 {
+    // Create entitities for each of opponent's camel cards on top of each other - a player need not reveal how many camels they have,
+    // but an entity for each card is important for the AI player
+    for _ in 0..inactive_player_camels_hand.0 {
         let inactive_player_camels_hand_entity = commands
             .spawn_bundle(SpriteBundle {
                 texture: asset_server.load("textures/card/camel.png"),
                 transform: Transform::default()
-                    .with_translation(
-                        INACTIVE_PLAYER_GOODS_HAND_START_POS
-                            - Vec3::Y
-                                * (CARD_DIMENSION.y * 0.5 + CARD_DIMENSION.x * 0.5 + CARD_PADDING),
-                    )
-                    .with_rotation(Quat::from_rotation_z((90.0_f32).to_radians())),
+                    .with_translation(get_opponent_camel_hand_translation())
+                    .with_rotation(Quat::from_rotation_z((180.0_f32).to_radians())),
 
                 ..default()
             })
