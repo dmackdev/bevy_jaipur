@@ -17,7 +17,8 @@ use crate::label::Label;
 use crate::move_validation::MoveType;
 use crate::positioning::{
     get_active_player_camel_card_translation, get_active_player_goods_card_translation,
-    get_ai_player_goods_card_translation, get_market_card_translation, DISCARD_PILE_POS,
+    get_ai_player_goods_card_translation, get_market_card_translation,
+    get_opponent_camel_hand_translation, DISCARD_PILE_POS,
 };
 use crate::resources::GameState;
 use crate::states::AppState;
@@ -133,6 +134,7 @@ fn handle_take_all_camels_move_confirmed(
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -149,13 +151,22 @@ fn handle_take_all_camels_move_confirmed(
             // add to active player camel hand
             active_player_camel_hand.0 += 1;
 
+            let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+            // TODO: implement these as methods on a Player component?
+            let end = if is_ai_turn {
+                get_opponent_camel_hand_translation()
+            } else {
+                get_active_player_camel_card_translation(active_player_camel_hand.0 - 1)
+            };
+
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,
                 Duration::from_secs(2),
                 TransformPositionLens {
                     start: transform.translation,
-                    end: get_active_player_camel_card_translation(active_player_camel_hand.0 - 1),
+                    end,
                 },
             )
             .with_completed_event(1);
