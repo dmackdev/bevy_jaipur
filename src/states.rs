@@ -2,6 +2,7 @@
 pub enum AppState {
     MainMenu,
     InitGame,
+    AiTurn,
     TurnTransition,
     InGame,
     WaitForTweensToFinish,

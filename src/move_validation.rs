@@ -61,7 +61,7 @@ fn handle_selected_card_state_change_for_take(
         && num_selected_goods_from_hand == 0
         && num_total_goods_in_hand < 7
     {
-        println!("TAKE SINGLE GOOD");
+        // println!("TAKE SINGLE GOOD");
         *move_validity_state = MoveValidity::Valid(MoveType::TakeSingleGood);
         return;
     }
@@ -79,7 +79,7 @@ fn handle_selected_card_state_change_for_take(
         && market_selected_card_query.iter().count() == total_num_camels_in_market
         && goods_hand_selected_card_query.iter().count() == 0
     {
-        println!("TAKE ALL CAMELS");
+        // println!("TAKE ALL CAMELS");
         *move_validity_state = MoveValidity::Valid(MoveType::TakeAllCamels);
         return;
     }
@@ -114,7 +114,7 @@ fn handle_selected_card_state_change_for_take(
         && num_selected_market_goods_cards + num_total_goods_in_hand - num_selected_goods_from_hand
             <= 7
     {
-        println!("EXCHANGE");
+        // println!("EXCHANGE");
         *move_validity_state = MoveValidity::Valid(MoveType::ExchangeForGoodsFromMarket);
         return;
     }

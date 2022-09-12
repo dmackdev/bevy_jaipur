@@ -29,6 +29,10 @@ pub fn get_active_player_goods_card_translation(idx: usize) -> Vec3 {
     GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
 }
 
+pub fn get_ai_player_goods_card_translation(idx: usize) -> Vec3 {
+    INACTIVE_PLAYER_GOODS_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
+}
+
 pub fn get_market_card_translation(idx: usize) -> Vec3 {
     DECK_START_POS
         - (5 - idx) as f32 * CARD_DIMENSION.x * Vec3::X
@@ -37,4 +41,12 @@ pub fn get_market_card_translation(idx: usize) -> Vec3 {
 
 pub fn get_active_player_camel_card_translation(idx: usize) -> Vec3 {
     CAMEL_HAND_START_POS + Vec3::X * idx as f32 * (CARD_DIMENSION.x + CARD_PADDING)
+}
+
+pub fn get_opponent_camel_hand_translation() -> Vec3 {
+    Vec3::new(
+        CAMEL_HAND_START_POS.x,
+        CAMEL_HAND_START_POS.y * -1.0,
+        CAMEL_HAND_START_POS.z,
+    )
 }

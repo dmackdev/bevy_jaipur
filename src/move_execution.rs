@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{Animator, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType};
+use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens};
+use bevy_tweening::{
+    Animator, EaseFunction, Tracks, Tween, TweenCompleted, TweeningPlugin, TweeningType,
+};
 use itertools::Itertools;
 use std::cmp::Reverse;
 use std::time::Duration;
@@ -17,7 +19,8 @@ use crate::label::Label;
 use crate::move_validation::MoveType;
 use crate::positioning::{
     get_active_player_camel_card_translation, get_active_player_goods_card_translation,
-    get_market_card_translation, DISCARD_PILE_POS,
+    get_ai_player_goods_card_translation, get_market_card_translation,
+    get_opponent_camel_hand_translation, DISCARD_PILE_POS,
 };
 use crate::resources::GameState;
 use crate::states::AppState;
@@ -37,6 +40,7 @@ fn handle_take_single_good_move_confirmed(
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -54,13 +58,22 @@ fn handle_take_single_good_move_confirmed(
         // add to active player goods hand
         active_player_goods_hand.0.push(good);
 
+        let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+        // TODO: implement these as methods on a Player component?
+        let end = if is_ai_turn {
+            get_ai_player_goods_card_translation(active_player_goods_hand.0.len() - 1)
+        } else {
+            get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1)
+        };
+
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             TweeningType::Once,
             Duration::from_secs(2),
             TransformPositionLens {
                 start: transform.translation,
-                end: get_active_player_goods_card_translation(active_player_goods_hand.0.len() - 1),
+                end,
             },
         )
         .with_completed_event(1);
@@ -123,6 +136,7 @@ fn handle_take_all_camels_move_confirmed(
     mut deck_cards_query: Query<(Entity, &DeckCard, &Card, &Transform, &mut Handle<Image>)>,
     mut tween_state: ResMut<TweenState>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -139,22 +153,51 @@ fn handle_take_all_camels_move_confirmed(
             // add to active player camel hand
             active_player_camel_hand.0 += 1;
 
+            let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+            // TODO: implement these as methods on a Player component?
+            let end = if is_ai_turn {
+                get_opponent_camel_hand_translation()
+            } else {
+                get_active_player_camel_card_translation(active_player_camel_hand.0 - 1)
+            };
+
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,
                 Duration::from_secs(2),
                 TransformPositionLens {
                     start: transform.translation,
-                    end: get_active_player_camel_card_translation(active_player_camel_hand.0 - 1),
+                    end,
                 },
             )
             .with_completed_event(1);
+
+            let mut tracks_vec = vec![tween];
+
+            if is_ai_turn {
+                let rotation_tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformRotationLens {
+                        start: transform.rotation,
+                        end: Quat::from_rotation_z((180.0_f32).to_radians()),
+                    },
+                )
+                .with_completed_event(1);
+                tracks_vec.push(rotation_tween);
+
+                tween_state.tweening_entities.push(card_entity);
+            }
+
+            let tracks = Tracks::new(tracks_vec);
 
             tween_state.tweening_entities.push(card_entity);
 
             commands
                 .entity(card_entity)
-                .insert(Animator::new(tween))
+                .insert(Animator::new(tracks))
                 .remove::<MarketCard>()
                 .insert(ActivePlayerCamelCard(active_player_camel_hand.0 - 1));
 
@@ -210,6 +253,7 @@ fn handle_exchange_goods_move_confirmed(
         (Entity, &Transform),
         (With<ActivePlayerCamelCard>, With<SelectedCard>),
     >,
+    all_player_camel_cards: Query<(Entity, &ActivePlayerCamelCard, &Transform)>,
     active_player_selected_goods_card: Query<
         (Entity, &ActivePlayerGoodsCard, &Transform),
         With<SelectedCard>,
@@ -330,6 +374,51 @@ fn handle_exchange_goods_move_confirmed(
                 .remove::<MarketCard>()
                 .insert(ActivePlayerGoodsCard(goods_hand_owner.0.len() - 1));
         }
+
+        let exchanged_camel_entities = active_player_selected_camel_cards
+            .iter()
+            .map(|(e, _)| e)
+            .collect::<Vec<_>>();
+
+        let unexchanged_camel_cards = all_player_camel_cards
+            .iter()
+            .filter(|(e, _, _)| !exchanged_camel_entities.contains(e))
+            .collect::<Vec<_>>();
+
+        let current_indices_ordered = unexchanged_camel_cards
+            .iter()
+            .map(|(_, camel_card, _)| camel_card.0)
+            .sorted()
+            .collect::<Vec<_>>();
+
+        for (e, camel_card, transform) in unexchanged_camel_cards {
+            let index_in_hand = camel_card.0;
+            let correct_index = current_indices_ordered
+                .iter()
+                .position(|i| *i == index_in_hand)
+                .unwrap();
+
+            if index_in_hand != correct_index {
+                let tween_shift_in_hand = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end: get_active_player_camel_card_translation(correct_index),
+                    },
+                )
+                .with_completed_event(e.to_bits());
+
+                tween_state.tweening_entities.push(e);
+
+                commands
+                    .entity(e)
+                    .insert(Animator::new(tween_shift_in_hand))
+                    .remove::<ActivePlayerCamelCard>()
+                    .insert(ActivePlayerCamelCard(correct_index));
+            }
+        }
     }
 }
 
@@ -343,8 +432,10 @@ fn handle_sell_goods_move_confirmed(
         (Entity, &ActivePlayerGoodsCard, &Transform),
         With<SelectedCard>,
     >,
+    all_active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard, &Transform)>,
     mut active_player_query: Query<(&mut GoodsHandOwner, &mut TokensOwner), With<ActivePlayer>>,
     mut game_state: ResMut<GameState>,
+    app_state: Res<State<AppState>>,
 ) {
     for _ev in ev_confirm_turn
         .iter()
@@ -385,6 +476,62 @@ fn handle_sell_goods_move_confirmed(
                 tokens_owner.0.goods[sold_card].push(val);
             }
         }
+
+        // As we have just sold cards and removed them from the hand, the current indices of ActivePlayerGoodsCards may be misaligned to the index of the card in the hand
+        let sold_entities: Vec<Entity> = active_player_selected_goods_card
+            .iter()
+            .map(|(e, _, _)| e)
+            .collect();
+
+        let unsold_goods_cards = all_active_player_goods_cards
+            .iter()
+            .filter(|(e, _, _)| !sold_entities.contains(e))
+            .collect::<Vec<_>>();
+
+        let current_indices_ordered = unsold_goods_cards
+            .iter()
+            .map(|(_, active_player_good_card, _)| active_player_good_card.0)
+            .sorted()
+            .collect::<Vec<_>>();
+
+        for (e, active_player_good_card, transform) in unsold_goods_cards {
+            let index_in_hand = active_player_good_card.0;
+            let correct_index = current_indices_ordered
+                .iter()
+                .position(|i| *i == index_in_hand)
+                .unwrap();
+
+            if index_in_hand != correct_index {
+                let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
+                // TODO: implement these as methods on a Player component?
+                let end = if is_ai_turn {
+                    get_ai_player_goods_card_translation(correct_index)
+                } else {
+                    get_active_player_goods_card_translation(correct_index)
+                };
+
+                let tween_shift_in_hand = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end,
+                    },
+                )
+                .with_completed_event(e.to_bits());
+
+                tween_state.tweening_entities.push(e);
+
+                commands
+                    .entity(e)
+                    .insert(Animator::new(tween_shift_in_hand))
+                    .remove::<ActivePlayerGoodsCard>()
+                    .insert(ActivePlayerGoodsCard(correct_index));
+            }
+        }
+
         let num_cards_sold = active_player_selected_goods_card.iter().count();
         let bonus_type = match num_cards_sold {
             d if d == 3 => Some(BonusType::Three),
@@ -430,12 +577,19 @@ pub struct TweenState {
 pub struct ScreenTransitionDelayTimer(Timer);
 
 fn wait_for_tweens_to_finish(
+    mut commands: Commands,
     mut ev_tween_completed: EventReader<TweenCompleted>,
     mut tween_state: ResMut<TweenState>,
     mut app_state: ResMut<State<AppState>>,
     time: Res<Time>,
     mut timer: ResMut<ScreenTransitionDelayTimer>,
     game_state: Res<GameState>,
+    active_player_query: Query<(Entity, Option<&AiPlayer>), With<ActivePlayer>>,
+    inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
+    active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard)>,
+    active_player_camel_cards: Query<(Entity, &ActivePlayerCamelCard)>,
+    inactive_player_goods_cards: Query<(Entity, &InactivePlayerGoodsCard)>,
+    inactive_player_camel_cards: Query<(Entity, &InactivePlayerCamelCard)>,
 ) {
     for ev in ev_tween_completed.iter() {
         let index = tween_state
@@ -453,8 +607,54 @@ fn wait_for_tweens_to_finish(
     if tween_state.did_all_tweens_complete && timer.0.tick(time.delta()).just_finished() {
         tween_state.did_all_tweens_complete = false;
 
+        let (active_player_entity, ai_player_option) = active_player_query.single();
+        let is_current_player_ai = ai_player_option.is_some();
+        let inactive_player_entity = inactive_player_query.single();
+
+        commands
+            .entity(active_player_entity)
+            .remove::<ActivePlayer>();
+
+        commands.entity(inactive_player_entity).insert(ActivePlayer);
+
+        for (e, active_good) in active_player_goods_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<ActivePlayerGoodsCard>()
+                .insert(InactivePlayerGoodsCard(active_good.0));
+        }
+
+        for (e, active_camel) in active_player_camel_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<ActivePlayerCamelCard>()
+                .insert(InactivePlayerCamelCard(active_camel.0));
+        }
+
+        for (e, inactive_good) in inactive_player_goods_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<InactivePlayerGoodsCard>()
+                .insert(ActivePlayerGoodsCard(inactive_good.0));
+        }
+
+        for (e, inactive_camel) in inactive_player_camel_cards.iter() {
+            commands
+                .entity(e)
+                .remove::<InactivePlayerCamelCard>()
+                .insert(ActivePlayerCamelCard(inactive_camel.0));
+        }
+
         if game_state.is_game_over {
             app_state.set(AppState::GameOver).unwrap();
+        } else if game_state.is_playing_ai {
+            if is_current_player_ai {
+                println!("TRANSITION TO PLAYER MOVE");
+                app_state.set(AppState::InGame).unwrap();
+            } else {
+                println!("TRANSITION TO AI MOVE");
+                app_state.set(AppState::AiTurn).unwrap();
+            }
         } else {
             app_state.set(AppState::TurnTransition).unwrap();
         }
@@ -468,8 +668,41 @@ impl Plugin for MoveExecutionPlugin {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
             .init_resource::<TweenState>()
             .add_plugin(TweeningPlugin)
+            // TODO: since these respond to events, can remove the AppState stage criteria. see if you can apply the labels to the whole system set instead of each system
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
+                    .with_system(
+                        handle_take_single_good_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_take_all_camels_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_exchange_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_sell_goods_move_confirmed
+                            .label(Label::EventReader)
+                            .before(handle_confirm_turn_event)
+                            .after(Label::EventWriter),
+                    )
+                    .with_system(
+                        handle_confirm_turn_event
+                            .label(Label::EventReader)
+                            .after(Label::EventWriter),
+                    ),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::AiTurn)
                     .with_system(
                         handle_take_single_good_move_confirmed
                             .label(Label::EventReader)
