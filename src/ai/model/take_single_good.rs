@@ -4,7 +4,7 @@ use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
 use crate::{
     card_selection::SelectedCard,
     event::ConfirmTurnEvent,
-    game_resources::card::{Card, CardType, MarketCard},
+    game_resources::card::{ActivePlayerGoodsCard, Card, CardType, MarketCard},
     move_validation::MoveType,
     states::AppState,
 };
@@ -62,6 +62,7 @@ pub fn take_single_good_scorer_system(
     mut query: Query<(&Actor, &mut Score), With<TakeSingleGoodScorer>>,
     mut scorer_states_query: Query<&mut TakeSingleGoodScorerState>,
     market_cards_query: Query<(Entity, &Card), With<MarketCard>>,
+    active_player_goods_hand_query: Query<&Card, With<ActivePlayerGoodsCard>>,
 ) {
     use rand::Rng;
 
@@ -70,7 +71,9 @@ pub fn take_single_good_scorer_system(
     for (Actor(actor), mut score) in query.iter_mut() {
         let mut scorer_state = scorer_states_query.get_mut(*actor).unwrap();
 
-        if !matches!(app_state.current(), AppState::AiTurn) {
+        let num_goods_in_hand = active_player_goods_hand_query.iter().count();
+
+        if !matches!(app_state.current(), AppState::AiTurn) || num_goods_in_hand >= 7 {
             scorer_state.card_entity = None;
             score.set(0.0);
             continue;
