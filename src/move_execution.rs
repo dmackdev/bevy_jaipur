@@ -1,6 +1,8 @@
 use bevy::prelude::*;
-use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::{Animator, EaseFunction, Tween, TweenCompleted, TweeningPlugin, TweeningType};
+use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens};
+use bevy_tweening::{
+    Animator, EaseFunction, Tracks, Tween, TweenCompleted, TweeningPlugin, TweeningType,
+};
 use itertools::Itertools;
 use std::cmp::Reverse;
 use std::time::Duration;
@@ -171,11 +173,31 @@ fn handle_take_all_camels_move_confirmed(
             )
             .with_completed_event(1);
 
+            let mut tracks_vec = vec![tween];
+
+            if is_ai_turn {
+                let rotation_tween = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    TweeningType::Once,
+                    Duration::from_secs(2),
+                    TransformRotationLens {
+                        start: transform.rotation,
+                        end: Quat::from_rotation_z((180.0_f32).to_radians()),
+                    },
+                )
+                .with_completed_event(1);
+                tracks_vec.push(rotation_tween);
+
+                tween_state.tweening_entities.push(card_entity);
+            }
+
+            let tracks = Tracks::new(tracks_vec);
+
             tween_state.tweening_entities.push(card_entity);
 
             commands
                 .entity(card_entity)
-                .insert(Animator::new(tween))
+                .insert(Animator::new(tracks))
                 .remove::<MarketCard>()
                 .insert(ActivePlayerCamelCard(active_player_camel_hand.0 - 1));
 
