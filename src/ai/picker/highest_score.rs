@@ -6,12 +6,6 @@ pub struct HighestScorePicker {
     pub threshold: f32,
 }
 
-impl HighestScorePicker {
-    pub fn new(threshold: f32) -> Self {
-        Self { threshold }
-    }
-}
-
 impl Picker for HighestScorePicker {
     fn pick<'a>(&self, choices: &'a [Choice], scores: &Query<&Score>) -> Option<&'a Choice> {
         let mut res: Option<&Choice> = None;
