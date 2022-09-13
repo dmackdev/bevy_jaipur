@@ -9,7 +9,6 @@ use itertools::Itertools;
 
 use crate::game_resources::card::{ActivePlayerCamelCard, ActivePlayerGoodsCard, Card, MarketCard};
 use crate::positioning::CARD_DIMENSION;
-use crate::states::TurnState;
 use crate::{event::ConfirmTurnEvent, label::Label, states::AppState};
 
 #[derive(Component)]
@@ -147,7 +146,7 @@ fn remove_card_selections_on_confirm_turn(
     }
 }
 
-fn setup_for_take_action(
+fn setup_interactable_cards(
     mut commands: Commands,
     query: Query<
         Entity,
@@ -158,28 +157,6 @@ fn setup_for_take_action(
         )>,
     >,
 ) {
-    // TODO: remove other Interactables, only add to cards that can be interacted with for Take
-
-    for entity in query.iter() {
-        commands.entity(entity).insert(Interactable {
-            groups: vec![Group(0)],
-            bounding_box: (-0.5 * CARD_DIMENSION, 0.5 * CARD_DIMENSION),
-        });
-    }
-}
-
-fn setup_for_sell_action(
-    mut commands: Commands,
-    query: Query<
-        Entity,
-        Or<(
-            With<MarketCard>,
-            With<ActivePlayerGoodsCard>,
-            With<ActivePlayerCamelCard>,
-        )>,
-    >,
-) {
-    // TODO: remove other Interactables, only add to cards that can be interacted with for Sell
     for entity in query.iter() {
         commands.entity(entity).insert(Interactable {
             groups: vec![Group(0)],
@@ -195,6 +172,9 @@ impl Plugin for CardSelectionPlugin {
         app.add_plugin(ShapePlugin)
             .add_plugin(InteractionPlugin)
             .init_resource::<SelectedCardState>()
+            .add_system_set(
+                SystemSet::on_enter(AppState::InGame).with_system(setup_interactable_cards),
+            )
             .add_system_set(
                 SystemSet::on_update(AppState::InGame)
                     .with_system(update_card_as_clicked)
@@ -213,8 +193,6 @@ impl Plugin for CardSelectionPlugin {
                         .after(Label::EventWriter),
                 ),
             )
-            .add_system_set(SystemSet::on_enter(TurnState::Take).with_system(setup_for_take_action))
-            .add_system_set(SystemSet::on_enter(TurnState::Sell).with_system(setup_for_sell_action))
             // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
             .add_system_to_stage(CoreStage::PostUpdate, handle_selected_card_removed);
     }
