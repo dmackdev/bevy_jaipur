@@ -176,7 +176,12 @@ fn setup_tokens_ui(
         .insert(GameTokensUiRoot)
         .id();
 
-    let game_tokens_children = create_tokens_ui(&mut commands, &asset_server, tokens.as_ref());
+    let game_tokens_children = create_tokens_ui(
+        &mut commands,
+        &asset_server,
+        tokens.as_ref(),
+        "Remaining game tokens".to_string(),
+    );
 
     commands
         .entity(game_tokens_root_node_entity)
@@ -203,6 +208,7 @@ fn setup_tokens_ui(
         &mut commands,
         &asset_server,
         &active_player_tokens_query.single().0,
+        "Your tokens".to_string(),
     );
 
     commands
@@ -214,8 +220,27 @@ fn create_tokens_ui(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     tokens: &Tokens,
+    title: String,
 ) -> Vec<Entity> {
     let mut v: Vec<Entity> = vec![];
+    v.push(
+        commands
+            .spawn_bundle(
+                TextBundle::from_section(
+                    title,
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 20.0,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(10.)),
+                    ..default()
+                }),
+            )
+            .id(),
+    );
     tokens.goods.iter().for_each(|(good_type, token_values)| {
         let t = commands
             .spawn_bundle(
@@ -241,11 +266,7 @@ fn create_tokens_ui(
         let t = commands
             .spawn_bundle(
                 TextBundle::from_section(
-                    format!(
-                        "{:?} bonus tokens remaining: {:?}",
-                        bonus_type,
-                        token_values.len()
-                    ),
+                    format!("{:?} bonus tokens: {:?}", bonus_type, token_values.len()),
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 20.0,
