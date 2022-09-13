@@ -1,3 +1,4 @@
+use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens};
 use bevy_tweening::{
@@ -661,6 +662,13 @@ fn wait_for_tweens_to_finish(
     }
 }
 
+fn run_if_during_turn(app_state: Res<State<AppState>>) -> ShouldRun {
+    match app_state.current() {
+        AppState::AiTurn | AppState::InGame => ShouldRun::Yes,
+        _ => ShouldRun::No,
+    }
+}
+
 pub struct MoveExecutionPlugin;
 
 impl Plugin for MoveExecutionPlugin {
@@ -668,70 +676,23 @@ impl Plugin for MoveExecutionPlugin {
         app.insert_resource(ScreenTransitionDelayTimer(Timer::from_seconds(2.0, true)))
             .init_resource::<TweenState>()
             .add_plugin(TweeningPlugin)
-            // TODO: since these respond to events, can remove the AppState stage criteria. see if you can apply the labels to the whole system set instead of each system
             .add_system_set(
-                SystemSet::on_update(AppState::InGame)
-                    .with_system(
-                        handle_take_single_good_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_take_all_camels_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_exchange_goods_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_sell_goods_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_confirm_turn_event
-                            .label(Label::EventReader)
-                            .after(Label::EventWriter),
-                    ),
+                SystemSet::new()
+                    .with_run_criteria(run_if_during_turn)
+                    .label(Label::EventReader)
+                    .before(handle_confirm_turn_event)
+                    .after(Label::EventWriter)
+                    .with_system(handle_take_single_good_move_confirmed)
+                    .with_system(handle_take_all_camels_move_confirmed)
+                    .with_system(handle_exchange_goods_move_confirmed)
+                    .with_system(handle_sell_goods_move_confirmed),
             )
             .add_system_set(
-                SystemSet::on_update(AppState::AiTurn)
-                    .with_system(
-                        handle_take_single_good_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_take_all_camels_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_exchange_goods_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_sell_goods_move_confirmed
-                            .label(Label::EventReader)
-                            .before(handle_confirm_turn_event)
-                            .after(Label::EventWriter),
-                    )
-                    .with_system(
-                        handle_confirm_turn_event
-                            .label(Label::EventReader)
-                            .after(Label::EventWriter),
-                    ),
+                SystemSet::new()
+                    .with_run_criteria(run_if_during_turn)
+                    .label(Label::EventReader)
+                    .after(Label::EventWriter)
+                    .with_system(handle_confirm_turn_event),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::WaitForTweensToFinish)
