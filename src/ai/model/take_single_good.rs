@@ -86,7 +86,7 @@ pub fn take_single_good_scorer_system(
         match good_to_take {
             Some((e, _)) => {
                 scorer_state.card_entity = Some(e);
-                score.set(rng.gen_range(0..=1) as f32);
+                score.set(0.3 * rng.gen_range(0..=1) as f32);
             }
             None => {
                 println!("NO GOOD TO TAKE");

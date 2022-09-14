@@ -73,12 +73,6 @@ pub fn sell_goods_scorer_system(
             continue;
         }
 
-        // >=5 of same good in hand => 100%
-        // 4 of same good in hand => 90%
-        // 3 of same good in hand => 80%
-        // 2 of same good in hand => 70%
-        // 1 of same good in hand => 60%
-
         let goods_in_hand = active_player_goods_hand_query
             .iter()
             .filter_map(|(e, c)| match c.0 {
@@ -122,7 +116,13 @@ pub fn sell_goods_scorer_system(
     }
 }
 
+// TODO: Add multiplier if high value good
+// >=5 of same good in hand => 100%
+// 4 of same good in hand => 80%
+// 3 of same good in hand => 60%
+// 2 of same good in hand => 40%
+// 1 of same good in hand => 20%
 fn calculate_score(highest_frequency_of_good: usize) -> f32 {
-    let raw_score = (highest_frequency_of_good as f32 / 10.0) + 0.5;
+    let raw_score = (highest_frequency_of_good as f32 * 20.0) / 100.0;
     clamp(raw_score, 0.0, 1.0)
 }

@@ -136,7 +136,7 @@ fn calculate_score(
 // At the best case this would be: 5 - 0 + 7 = 12, but num_goods_in_opponent_hand has too much influence - even with 0 camels this component takes up more than half of the best score.
 // We need to add weightings to put more importance on num_camels_in_market and less on num_goods_in_hand
 // num_camels_in_market^2 - 2 * (0.5 * num_goods_in_hand)^2 + num_goods_in_opponent_hand
-// Best case: 5^2 - 0 + 7 = 32, which we map to be equal score of selling 3 goods: 80%
+// Best case: 5^2 - 0 + 7 = 32, which we map to be equal score of selling 4 goods: 80%
 // So our formula becomes [num_camels_in_market^2 - 2 * (0.5 * num_goods_in_hand)^2 + num_goods_in_opponent_hand] * 0.8/32
 // If current player has a full goods hand, this would be a bad time to take all camels
 // since they cannot exchange them for goods on their next turn
