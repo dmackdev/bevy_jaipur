@@ -1,9 +1,13 @@
 use bevy::prelude::*;
 use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
+use itertools::Itertools;
 
 use crate::{
-    card_selection::SelectedCard, event::ConfirmTurnEvent,
-    game_resources::card::ActivePlayerGoodsCard, move_validation::MoveType, states::AppState,
+    card_selection::SelectedCard,
+    event::ConfirmTurnEvent,
+    game_resources::card::{ActivePlayerGoodsCard, Card, CardType},
+    move_validation::MoveType,
+    states::AppState,
 };
 
 #[derive(Component, Debug, Clone)]
@@ -57,12 +61,8 @@ pub fn sell_goods_scorer_system(
     app_state: Res<State<AppState>>,
     mut query: Query<(&Actor, &mut Score), With<SellGoodsScorer>>,
     mut scorer_states_query: Query<&mut SellGoodsScorerState>,
-    active_player_goods_hand_query: Query<Entity, With<ActivePlayerGoodsCard>>,
+    active_player_goods_hand_query: Query<(Entity, &Card), With<ActivePlayerGoodsCard>>,
 ) {
-    use rand::Rng;
-
-    let mut rng = rand::thread_rng();
-
     for (Actor(actor), mut score) in query.iter_mut() {
         let mut scorer_state = scorer_states_query.get_mut(*actor).unwrap();
 
@@ -72,12 +72,46 @@ pub fn sell_goods_scorer_system(
             continue;
         }
 
-        let good_to_sell = active_player_goods_hand_query.iter().last();
+        // >=5 of same good in hand => 100%
+        // 4 of same good in hand => 90%
+        // 3 of same good in hand => 80%
+        // 2 of same good in hand => 70%
+        // 1 of same good in hand => 60%
 
-        match good_to_sell {
-            Some(e) => {
-                scorer_state.card_entities = Some(vec![e]);
-                score.set(rng.gen_range(0..=1) as f32);
+        let goods_in_hand = active_player_goods_hand_query
+            .iter()
+            .filter_map(|(e, c)| match c.0 {
+                CardType::Good(g) => Some((e, g)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let counts = goods_in_hand.iter().counts_by(|(_, good)| good);
+
+        let most_frequent_good = counts.iter().max_by_key(|(_, freq)| *freq);
+
+        // TODO: Prevent selling a single high value good
+
+        match most_frequent_good {
+            Some((good_type_to_sell, freq)) => {
+                let entities_to_sell = goods_in_hand
+                    .iter()
+                    .filter_map(|(e, g)| {
+                        if *good_type_to_sell == g {
+                            Some(*e)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                scorer_state.card_entities = Some(entities_to_sell);
+                let mut new_score = (*freq as f32 / 10.0) + 0.5;
+                new_score = clamp(new_score, 0.0, 1.0);
+
+                println!("COULD SELL {} GOODS, SCORE {}", freq, new_score);
+
+                score.set(new_score);
             }
             None => {
                 println!("NO GOOD TO SELL");
@@ -85,5 +119,14 @@ pub fn sell_goods_scorer_system(
                 score.set(0.0);
             }
         }
+    }
+}
+
+fn clamp<T: PartialOrd>(val: T, min: T, max: T) -> T {
+    let val = if val > max { max } else { val };
+    if val < min {
+        min
+    } else {
+        val
     }
 }

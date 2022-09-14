@@ -23,7 +23,7 @@ impl CardType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Enum, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Enum, Eq, PartialEq, Hash)]
 pub enum GoodType {
     Diamond,
     Gold,
