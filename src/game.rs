@@ -306,7 +306,8 @@ fn setup_game(mut commands: Commands, game_state: Res<GameState>) {
             player_one_goods_hand,
             player_one_num_camels,
         ))
-        .insert(ActivePlayer);
+        .insert(ActivePlayer)
+        .insert(HumanPlayer);
 
     let second_player_entity = commands
         .spawn_bundle(PlayerBundle::new(
@@ -318,6 +319,8 @@ fn setup_game(mut commands: Commands, game_state: Res<GameState>) {
 
     if game_state.is_playing_ai {
         commands.entity(second_player_entity).insert(AiPlayer);
+    } else {
+        commands.entity(second_player_entity).insert(HumanPlayer);
     }
 
     commands.insert_resource(deck);
@@ -493,6 +496,9 @@ pub struct Player;
 
 #[derive(Component)]
 pub struct AiPlayer;
+
+#[derive(Component)]
+pub struct HumanPlayer;
 
 #[derive(Component)]
 pub struct PlayerName(pub String);

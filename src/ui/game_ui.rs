@@ -5,7 +5,7 @@ use std::{fmt, ops::DerefMut};
 use crate::{
     card_selection::SelectedCardState,
     event::ConfirmTurnEvent,
-    game::{ActivePlayer, TokensOwner},
+    game::{ActivePlayer, HumanPlayer, TokensOwner},
     game_resources::tokens::Tokens,
     label::Label,
     move_validation::MoveValidity,
@@ -153,11 +153,20 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component)]
 struct GameTokensUiRoot;
 
-fn setup_tokens_ui(
+fn refresh_tokens_ui_after_ai_turn(
+    commands: Commands,
+    asset_server: Res<AssetServer>,
+    tokens: Res<Tokens>,
+    active_player_tokens_query: Query<&TokensOwner, With<HumanPlayer>>,
+) {
+    setup_tokens_ui(commands, asset_server, tokens, active_player_tokens_query);
+}
+
+fn setup_tokens_ui<T: Component>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tokens: Res<Tokens>,
-    active_player_tokens_query: Query<&TokensOwner, With<ActivePlayer>>,
+    active_player_tokens_query: Query<&TokensOwner, With<T>>,
 ) {
     let game_tokens_root_node_entity = commands
         .spawn_bundle(NodeBundle {
@@ -436,7 +445,7 @@ impl Plugin for GameUiPlugin {
         app.add_system_set(
             SystemSet::on_enter(AppState::InGame)
                 .with_system(setup_game_ui)
-                .with_system(setup_tokens_ui),
+                .with_system(setup_tokens_ui::<ActivePlayer>),
         )
         .add_system_set(
             SystemSet::on_update(AppState::InGame)
@@ -453,8 +462,13 @@ impl Plugin for GameUiPlugin {
         )
         .add_system_set(
             SystemSet::on_exit(TurnState::Sell)
-                .with_system(cleanup_tokens_ui.before(setup_tokens_ui))
-                .with_system(setup_tokens_ui),
+                .with_system(cleanup_tokens_ui.before(setup_tokens_ui::<ActivePlayer>))
+                .with_system(setup_tokens_ui::<ActivePlayer>),
+        )
+        .add_system_set(
+            SystemSet::on_exit(AppState::AiTurn)
+                .with_system(cleanup_tokens_ui.before(refresh_tokens_ui_after_ai_turn))
+                .with_system(refresh_tokens_ui_after_ai_turn),
         )
         .add_system_set(
             SystemSet::on_enter(AppState::TurnTransition).with_system(cleanup_tokens_ui),
