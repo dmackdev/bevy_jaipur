@@ -3,6 +3,7 @@ use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
 use itertools::Itertools;
 
 use crate::{
+    ai::model::math::clamp,
     card_selection::SelectedCard,
     event::ConfirmTurnEvent,
     game_resources::card::{ActivePlayerGoodsCard, Card, CardType},
@@ -106,12 +107,11 @@ pub fn sell_goods_scorer_system(
                     .collect::<Vec<_>>();
 
                 scorer_state.card_entities = Some(entities_to_sell);
-                let mut new_score = (*freq as f32 / 10.0) + 0.5;
-                new_score = clamp(new_score, 0.0, 1.0);
+                let score_value = calculate_score(*freq);
 
-                println!("COULD SELL {} GOODS, SCORE {}", freq, new_score);
+                println!("COULD SELL {} GOODS, SCORE {}", freq, score_value);
 
-                score.set(new_score);
+                score.set(score_value);
             }
             None => {
                 println!("NO GOOD TO SELL");
@@ -122,11 +122,7 @@ pub fn sell_goods_scorer_system(
     }
 }
 
-fn clamp<T: PartialOrd>(val: T, min: T, max: T) -> T {
-    let val = if val > max { max } else { val };
-    if val < min {
-        min
-    } else {
-        val
-    }
+fn calculate_score(highest_frequency_of_good: usize) -> f32 {
+    let raw_score = (highest_frequency_of_good as f32 / 10.0) + 0.5;
+    clamp(raw_score, 0.0, 1.0)
 }
