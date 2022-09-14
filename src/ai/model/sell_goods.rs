@@ -102,7 +102,7 @@ pub fn sell_goods_scorer_system(
                     .collect::<Vec<_>>();
 
                 scorer_state.card_entities = Some(entities_to_sell);
-                let score_value = calculate_score(*freq);
+                let score_value = calculate_score(*freq, good_type_to_sell.is_high_value());
 
                 println!("COULD SELL {} GOODS, SCORE {}", freq, score_value);
 
@@ -117,13 +117,17 @@ pub fn sell_goods_scorer_system(
     }
 }
 
-// TODO: Add multiplier if high value good
 // >=5 of same good in hand => 100%
 // 4 of same good in hand => 80%
 // 3 of same good in hand => 60%
 // 2 of same good in hand => 40%
 // 1 of same good in hand => 20%
-fn calculate_score(highest_frequency_of_good: usize) -> f32 {
-    let raw_score = (highest_frequency_of_good as f32 * 20.0) / 100.0;
+fn calculate_score(highest_frequency_of_good: usize, is_high_value_good: bool) -> f32 {
+    let mut raw_score = (highest_frequency_of_good as f32 * 20.0) / 100.0;
+
+    if is_high_value_good {
+        raw_score *= 1.5;
+    }
+
     clamp(raw_score, 0.0, 1.0)
 }
