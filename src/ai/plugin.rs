@@ -45,7 +45,7 @@ impl Plugin for JaipurAiPlugin {
             .add_system_set_to_stage(
                 BigBrainStage::Actions,
                 SystemSet::new()
-                    .label(Label::EventWriter)
+                    .label(Label::ConfirmTurnEventWriter)
                     .with_system(take_single_good_action_system)
                     .with_system(sell_goods_action_system)
                     .with_system(take_all_camels_action_system),

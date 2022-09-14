@@ -446,8 +446,8 @@ impl Plugin for GameUiPlugin {
                 )
                 .with_system(
                     handle_confirm_button_interaction
-                        .label(Label::EventWriter)
-                        .before(Label::EventReader),
+                        .label(Label::ConfirmTurnEventWriter)
+                        .before(Label::ConfirmTurnEventReader),
                 )
                 .with_system(handle_move_validity_change),
         )

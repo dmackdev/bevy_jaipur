@@ -679,9 +679,9 @@ impl Plugin for MoveExecutionPlugin {
             .add_system_set(
                 SystemSet::new()
                     .with_run_criteria(run_if_during_turn)
-                    .label(Label::EventReader)
+                    .label(Label::ConfirmTurnEventReader)
                     .before(handle_confirm_turn_event)
-                    .after(Label::EventWriter)
+                    .after(Label::ConfirmTurnEventWriter)
                     .with_system(handle_take_single_good_move_confirmed)
                     .with_system(handle_take_all_camels_move_confirmed)
                     .with_system(handle_exchange_goods_move_confirmed)
@@ -690,8 +690,8 @@ impl Plugin for MoveExecutionPlugin {
             .add_system_set(
                 SystemSet::new()
                     .with_run_criteria(run_if_during_turn)
-                    .label(Label::EventReader)
-                    .after(Label::EventWriter)
+                    .label(Label::ConfirmTurnEventReader)
+                    .after(Label::ConfirmTurnEventWriter)
                     .with_system(handle_confirm_turn_event),
             )
             .add_system_set(

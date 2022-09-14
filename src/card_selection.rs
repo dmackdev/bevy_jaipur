@@ -182,15 +182,15 @@ impl Plugin for CardSelectionPlugin {
                     .with_system(update_card_as_unselected.after(update_card_as_clicked))
                     .with_system(
                         remove_card_selections_on_confirm_turn
-                            .label(Label::EventReader)
-                            .after(Label::EventWriter),
+                            .label(Label::ConfirmTurnEventReader)
+                            .after(Label::ConfirmTurnEventWriter),
                     ),
             )
             .add_system_set(
                 SystemSet::on_update(AppState::AiTurn).with_system(
                     remove_card_selections_on_confirm_turn
-                        .label(Label::EventReader)
-                        .after(Label::EventWriter),
+                        .label(Label::ConfirmTurnEventReader)
+                        .after(Label::ConfirmTurnEventWriter),
                 ),
             )
             // component removal occurs at the end of the stage (i.e. update stage), so this system needs to go in PostUpdate
