@@ -81,11 +81,12 @@ pub fn sell_goods_scorer_system(
             })
             .collect::<Vec<_>>();
 
-        let counts = goods_in_hand.iter().counts_by(|(_, good)| good);
+        let mut counts = goods_in_hand.iter().counts_by(|(_, good)| good);
+
+        // Prevent selling a single high value good
+        counts.retain(|good_type, count| !(good_type.is_high_value() && *count < 2));
 
         let most_frequent_good = counts.iter().max_by_key(|(_, freq)| *freq);
-
-        // TODO: Prevent selling a single high value good
 
         match most_frequent_good {
             Some((good_type_to_sell, freq)) => {
