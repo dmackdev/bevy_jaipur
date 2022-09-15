@@ -5,6 +5,10 @@ use crate::label::Label;
 
 use super::{
     model::{
+        exchange_goods::{
+            exchange_goods_action_system, exchange_goods_scorer_system, ExchangeGoodsAction,
+            ExchangeGoodsScorer, ExchangeGoodsScorerState,
+        },
         sell_goods::{
             sell_goods_action_system, sell_goods_scorer_system, SellGoodsAction, SellGoodsScorer,
             SellGoodsScorerState,
@@ -27,12 +31,14 @@ pub fn init(mut commands: Commands) {
         .insert(SellGoodsScorerState::default())
         .insert(TakeSingleGoodScorerState::default())
         .insert(TakeAllCamelsScorerState::default())
+        .insert(ExchangeGoodsScorerState::default())
         .insert(
             Thinker::build()
                 .picker(HighestScorePicker { threshold: 0.1 })
                 .when(TakeSingleGoodScorer, TakeSingleGoodAction)
                 .when(SellGoodsScorer, SellGoodsAction)
-                .when(TakeAllCamelsScorer, TakeAllCamelsAction),
+                .when(TakeAllCamelsScorer, TakeAllCamelsAction)
+                .when(ExchangeGoodsScorer, ExchangeGoodsAction),
         );
 }
 
@@ -48,14 +54,16 @@ impl Plugin for JaipurAiPlugin {
                     .label(Label::ConfirmTurnEventWriter)
                     .with_system(take_single_good_action_system)
                     .with_system(sell_goods_action_system)
-                    .with_system(take_all_camels_action_system),
+                    .with_system(take_all_camels_action_system)
+                    .with_system(exchange_goods_action_system),
             )
             .add_system_set_to_stage(
                 BigBrainStage::Scorers,
                 SystemSet::new()
                     .with_system(take_single_good_scorer_system)
                     .with_system(sell_goods_scorer_system)
-                    .with_system(take_all_camels_scorer_system),
+                    .with_system(take_all_camels_scorer_system)
+                    .with_system(exchange_goods_scorer_system),
             );
     }
 }
