@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap};
+use std::cmp;
 
 use bevy::prelude::*;
 use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
@@ -64,8 +64,10 @@ pub fn exchange_goods_scorer_system(
     app_state: Res<State<AppState>>,
     mut query: Query<(&Actor, &mut Score), With<ExchangeGoodsScorer>>,
     mut scorer_states_query: Query<&mut ExchangeGoodsScorerState>,
-    active_player_goods_hand_query: Query<(Entity, &Card), With<ActivePlayerGoodsCard>>,
-    active_player_camel_hand_query: Query<(Entity, &Card), With<ActivePlayerCamelCard>>,
+    active_player_cards_hand_query: Query<
+        (Entity, &Card),
+        Or<(With<ActivePlayerGoodsCard>, With<ActivePlayerCamelCard>)>,
+    >,
     market_cards_query: Query<(Entity, &Card), With<MarketCard>>,
 ) {
     for (Actor(actor), mut score) in query.iter_mut() {
@@ -79,13 +81,13 @@ pub fn exchange_goods_scorer_system(
 
         let market_goods = market_cards_query
             .iter()
-            .filter_map(|(ent, card)| match card.0 {
+            .filter_map(|(_, card)| match card.0 {
                 CardType::Good(good_type) => Some(good_type),
                 _ => None,
             })
             .collect::<Vec<_>>();
 
-        let (goods_in_hand, camels_in_hand): (Vec<_>, Vec<_>) = active_player_goods_hand_query
+        let (goods_in_hand, camels_in_hand): (Vec<_>, Vec<_>) = active_player_cards_hand_query
             .iter()
             .partition_map(|(e, c)| match c.0 {
                 CardType::Good(g) => Either::Left((e, g)),
@@ -112,13 +114,19 @@ pub fn exchange_goods_scorer_system(
 
         // Find goods in hand of which there are only one, that are not in the market
         // TODO: Filter out high value goods to not exchange them, unless there are no more tokens for it
-        let single_goods_in_hand = goods_hand_counts
+        let eligible_single_goods_in_hand = goods_in_hand
             .iter()
-            .filter_map(|(good_type, count)| {
-                if *count == 1 && !market_goods.iter().contains(good_type) {
-                    Some(**good_type)
-                } else {
-                    None
+            .filter_map(|(ent, good_type)| {
+                let count = goods_hand_counts.get(good_type);
+                match count {
+                    Some(count) => {
+                        if *count == 1 && !market_goods.iter().contains(good_type) {
+                            Some(*ent)
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
                 }
             })
             .collect::<Vec<_>>();
@@ -128,7 +136,44 @@ pub fn exchange_goods_scorer_system(
         // 2 Zip [...camel entities permitted to exchange, ...single goods in hand entities] with market entities from step 1
         // 3 If there are at least 2 tuples, then set the score above 0 proportionate to the new counts of goods in your hand after the exchange, else 0
 
-        scorer_state.card_entities = None;
-        score.set(0.0);
+        let market_goods_with_ents = market_cards_query
+            .iter()
+            .filter_map(|(ent, card)| match card.0 {
+                CardType::Good(good_type) => Some((ent, good_type)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        let entities_to_exchange_from_hand = camels_in_hand
+            .iter()
+            .take(num_camels_permitted_to_exchange as usize)
+            .chain(eligible_single_goods_in_hand.iter());
+
+        let sorted_market_entities = market_goods_with_ents
+            .iter()
+            .sorted_by_key(|(_, g)| goods_hand_counts_after_market_take.get(g).unwrap_or(&0))
+            .map(|(ent, _)| ent)
+            .rev()
+            .collect::<Vec<_>>();
+
+        let zipped = entities_to_exchange_from_hand
+            .zip(sorted_market_entities)
+            .collect::<Vec<_>>();
+
+        if zipped.len() < 2 {
+            println!("COULD NOT EXCHANGE CARDS",);
+            scorer_state.card_entities = None;
+            score.set(0.0);
+        } else {
+            println!("FOUND {} CARDS TO EXCHANGE", zipped.len());
+            let mut ents = vec![];
+            for (hand_ent, market_ent) in zipped {
+                ents.push(*hand_ent);
+                ents.push(*market_ent);
+            }
+            scorer_state.card_entities = Some(ents);
+            // TODO: Do intelligent scoring
+            score.set(1.0);
+        }
     }
 }
