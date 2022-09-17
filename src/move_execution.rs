@@ -261,7 +261,10 @@ fn handle_exchange_goods_move_confirmed(
     >,
     selected_market_goods_cards_query: Query<(Entity, &MarketCard, &Transform), With<SelectedCard>>,
     mut tween_state: ResMut<TweenState>,
+    app_state: Res<State<AppState>>,
 ) {
+    let is_ai_turn = *app_state.current() == AppState::AiTurn;
+
     for _ev in ev_confirm_turn
         .iter()
         .filter(|ev| matches!(ev.0, MoveType::ExchangeForGoodsFromMarket))
@@ -304,13 +307,19 @@ fn handle_exchange_goods_move_confirmed(
                 .remove::<ActivePlayerGoodsCard>()
                 .insert(MarketCard(market_good.1 .0));
 
+            let end = if is_ai_turn {
+                get_ai_player_goods_card_translation(player_good.1 .0)
+            } else {
+                get_active_player_goods_card_translation(player_good.1 .0)
+            };
+
             let tween_market_to_hand = Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,
                 Duration::from_secs(2),
                 TransformPositionLens {
                     start: market_good.2.translation,
-                    end: get_active_player_goods_card_translation(player_good.1 .0),
+                    end,
                 },
             )
             .with_completed_event(2);
@@ -356,13 +365,19 @@ fn handle_exchange_goods_move_confirmed(
                 .remove::<ActivePlayerCamelCard>()
                 .insert(MarketCard(market_good.1 .0));
 
+            let end = if is_ai_turn {
+                get_ai_player_goods_card_translation(goods_hand_owner.0.len() - 1)
+            } else {
+                get_active_player_goods_card_translation(goods_hand_owner.0.len() - 1)
+            };
+
             let tween_market_to_hand = Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,
                 Duration::from_secs(2),
                 TransformPositionLens {
                     start: market_good.2.translation,
-                    end: get_active_player_goods_card_translation(goods_hand_owner.0.len() - 1),
+                    end,
                 },
             )
             .with_completed_event(4);
@@ -400,13 +415,19 @@ fn handle_exchange_goods_move_confirmed(
                 .unwrap();
 
             if index_in_hand != correct_index {
+                let end = if is_ai_turn {
+                    get_opponent_camel_hand_translation()
+                } else {
+                    get_active_player_camel_card_translation(correct_index)
+                };
+
                 let tween_shift_in_hand = Tween::new(
                     EaseFunction::QuadraticInOut,
                     TweeningType::Once,
                     Duration::from_secs(2),
                     TransformPositionLens {
                         start: transform.translation,
-                        end: get_active_player_camel_card_translation(correct_index),
+                        end,
                     },
                 )
                 .with_completed_event(e.to_bits());
