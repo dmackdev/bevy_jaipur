@@ -5,6 +5,7 @@ use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
 use itertools::{Either, Itertools};
 
 use crate::{
+    ai::model::math::clamp,
     card_selection::SelectedCard,
     event::ConfirmTurnEvent,
     game_resources::card::{
@@ -160,20 +161,35 @@ pub fn exchange_goods_scorer_system(
             .zip(sorted_market_entities)
             .collect::<Vec<_>>();
 
-        if zipped.len() < 2 {
+        let zipped_len = zipped.len();
+
+        if zipped_len < 2 {
             println!("COULD NOT EXCHANGE CARDS",);
             scorer_state.card_entities = None;
             score.set(0.0);
         } else {
-            println!("FOUND {} CARDS TO EXCHANGE", zipped.len());
+            println!("FOUND {} CARDS TO EXCHANGE", zipped_len);
             let mut ents = vec![];
             for (hand_ent, market_ent) in zipped {
                 ents.push(*hand_ent);
                 ents.push(*market_ent);
             }
             scorer_state.card_entities = Some(ents);
-            // TODO: Do intelligent scoring
-            score.set(1.0);
+
+            let highest_count_after_take = goods_hand_counts_after_market_take
+                .iter()
+                .sorted_by_key(|(_, count)| *count)
+                .rev()
+                .next()
+                .unwrap()
+                .1;
+
+            // TODO: I am adding one to make this a higher score than take single good for the corresponding number of goods in hand after
+            // This is because the exchange must happen on at least two different goods types, so we are in total taking more cards in of value
+            let score_value = clamp(((highest_count_after_take + 1) * 2) as f32 / 10.0, 0.0, 1.0);
+            println!("SCORE: {}", score_value);
+
+            score.set(score_value);
         }
     }
 }
