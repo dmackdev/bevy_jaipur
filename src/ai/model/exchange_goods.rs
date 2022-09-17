@@ -101,7 +101,7 @@ pub fn exchange_goods_scorer_system(
         // Exchanging camels will add extra goods to your hand - ensure this would not exceed max number of goods allowed in hand
         // And you cannot exchange more camels than you have
         let num_camels_permitted_to_exchange =
-            cmp::min(num_goods_in_hand as i32 - 7, num_camels_in_hand as i32);
+            cmp::min(7 - num_goods_in_hand as i32, num_camels_in_hand as i32);
 
         // For each good in the market, if you took all of that type of good, how many would you get in your hand?
         let goods_hand_counts = goods_in_hand.iter().counts_by(|(_, good)| good);
