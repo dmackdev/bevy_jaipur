@@ -111,7 +111,6 @@ pub fn exchange_goods_scorer_system(
             *count += goods_hand_counts.get(good).unwrap_or(&0);
         }
         // TODO: filter out goods_hand_counts_after_market_take for which there is count of one, unless its a high value good
-        println!("{:?}", goods_hand_counts_after_market_take);
 
         // Find goods in hand of which there are only one, that are not in the market
         // TODO: Filter out high value goods to not exchange them, unless there are no more tokens for it
