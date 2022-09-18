@@ -446,12 +446,19 @@ fn handle_exchange_goods_move_confirmed(
 
 fn handle_sell_goods_move_confirmed(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut ev_confirm_turn: EventReader<ConfirmTurnEvent>,
     mut discard_pile: ResMut<DiscardPile>,
     mut tween_state: ResMut<TweenState>,
     mut game_tokens: ResMut<Tokens>,
-    active_player_selected_goods_card: Query<
-        (Entity, &ActivePlayerGoodsCard, &Transform),
+    mut active_player_selected_goods_card: Query<
+        (
+            Entity,
+            &ActivePlayerGoodsCard,
+            &Transform,
+            &Card,
+            &mut Handle<Image>,
+        ),
         With<SelectedCard>,
     >,
     all_active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard, &Transform)>,
@@ -464,15 +471,24 @@ fn handle_sell_goods_move_confirmed(
         .filter(|ev| matches!(ev.0, MoveType::SellGoods))
     {
         let (mut goods_hand_owner, mut tokens_owner) = active_player_query.single_mut();
+        let is_ai_turn = *app_state.current() == AppState::AiTurn;
 
-        for (e, active_player_goods_card, transform) in active_player_selected_goods_card
-            .iter()
-            // sort in desc order to avoid shifting the indices for subsequent loop iterations after having removed a card from the hand
-            .sorted_by_key(|(_, active_player_goods_card, _)| Reverse(active_player_goods_card.0))
+        for (e, active_player_goods_card, transform, card, mut image) in
+            active_player_selected_goods_card
+                .iter_mut()
+                // sort in desc order to avoid shifting the indices for subsequent loop iterations after having removed a card from the hand
+                .sorted_by_key(|(_, active_player_goods_card, _, _, _)| {
+                    Reverse(active_player_goods_card.0)
+                })
         {
             let sold_card = goods_hand_owner.0.remove(active_player_goods_card.0);
 
             discard_pile.cards.push(CardType::Good(sold_card));
+
+            if is_ai_turn {
+                // Show face
+                *image = asset_server.load(&card.0.get_card_texture());
+            }
 
             let tween_goods_hand_to_discard_pile = Tween::new(
                 EaseFunction::QuadraticInOut,
@@ -502,7 +518,7 @@ fn handle_sell_goods_move_confirmed(
         // As we have just sold cards and removed them from the hand, the current indices of ActivePlayerGoodsCards may be misaligned to the index of the card in the hand
         let sold_entities: Vec<Entity> = active_player_selected_goods_card
             .iter()
-            .map(|(e, _, _)| e)
+            .map(|(e, _, _, _, _)| e)
             .collect();
 
         let unsold_goods_cards = all_active_player_goods_cards
@@ -524,8 +540,6 @@ fn handle_sell_goods_move_confirmed(
                 .unwrap();
 
             if index_in_hand != correct_index {
-                let is_ai_turn = *app_state.current() == AppState::AiTurn;
-
                 // TODO: implement these as methods on a Player component?
                 let end = if is_ai_turn {
                     get_ai_player_goods_card_translation(correct_index)
@@ -608,10 +622,15 @@ fn wait_for_tweens_to_finish(
     game_state: Res<GameState>,
     active_player_query: Query<(Entity, Option<&AiPlayer>), With<ActivePlayer>>,
     inactive_player_query: Query<Entity, (With<Player>, Without<ActivePlayer>)>,
-    active_player_goods_cards: Query<(Entity, &ActivePlayerGoodsCard)>,
+    mut active_player_goods_cards: Query<
+        ((Entity, &mut Handle<Image>), &ActivePlayerGoodsCard),
+        Without<MarketCard>,
+    >,
     active_player_camel_cards: Query<(Entity, &ActivePlayerCamelCard)>,
     inactive_player_goods_cards: Query<(Entity, &InactivePlayerGoodsCard)>,
     inactive_player_camel_cards: Query<(Entity, &InactivePlayerCamelCard)>,
+    mut market_cards_query: Query<(&Card, &mut Handle<Image>), With<MarketCard>>,
+    asset_server: Res<AssetServer>,
 ) {
     for ev in ev_tween_completed.iter() {
         let index = tween_state
@@ -639,11 +658,15 @@ fn wait_for_tweens_to_finish(
 
         commands.entity(inactive_player_entity).insert(ActivePlayer);
 
-        for (e, active_good) in active_player_goods_cards.iter() {
+        for ((e, mut card_image), active_good) in active_player_goods_cards.iter_mut() {
             commands
                 .entity(e)
                 .remove::<ActivePlayerGoodsCard>()
                 .insert(InactivePlayerGoodsCard(active_good.0));
+
+            if is_current_player_ai {
+                *card_image = asset_server.load("textures/card/back.png");
+            }
         }
 
         for (e, active_camel) in active_player_camel_cards.iter() {
@@ -665,6 +688,13 @@ fn wait_for_tweens_to_finish(
                 .entity(e)
                 .remove::<InactivePlayerCamelCard>()
                 .insert(ActivePlayerCamelCard(inactive_camel.0));
+        }
+
+        if is_current_player_ai {
+            // Show card faces for all market cards in case AI exchanged
+            for (card, mut card_image) in market_cards_query.iter_mut() {
+                *card_image = asset_server.load(&card.0.get_card_texture());
+            }
         }
 
         if game_state.is_game_over {
