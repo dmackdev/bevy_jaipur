@@ -1,6 +1,6 @@
 # Jaipur AI
 
-The following notes are more of a reminder for myself, but may be of interest to the reader. Read on if you have played at least one game and wish to understand how the AI "thinks" :smile:
+The following notes are more of a reminder for myself, but may be of interest to the reader. Read on if you have played at least one game and wish to understand how the AI "thinks"! :smile:
 
 ### Scoring
 
@@ -76,4 +76,4 @@ This was difficult since there could be many possible combinations for this move
 
 The scorer orders the goods in the market according to how many of that good would end up in its hand if it took all of that good in the market, highest to lowest. It identifies the goods in its hand of which there are only one, that are not in the market - these are deemed to not be as "valuable" to keep since acquiring more goods of the same type gets you closer to getting Bonus Tokens from a sale. Camels take precedence for exchanging - this is their main use in the game as they cannot be sold. We find the number of camels permitted to exchange - this would add extra goods to your hand, and you cannot have more than 7 goods in your hand. We "zip" the camels and single goods in your hand with the ordered goods in the market - this puts precedence on goods in the market that would yield the highest number in your hand, and ensures we would not exceed the max good limit since the goods being exchanged from your hand are 1-1 exchanges with good from the market. For a viable move, this result must have at least two tuples of a good/camel from your hand with a market good, since you must take at least two goods from the market in an exchange. For a viable move, we score this according to the formula `(highest_count_after_take + 1) * 20) / 100`, where `highest_count_after_take` is the highest number of a good in your hand that would occur after taking all of that good from the market. This is proportionate to the "Take single good" scoring formula, but we add 1 to make this a higher score for the same number of goods in your hand after the take since we would be exchanging less valuable cards (camels and single goods in hand) for more valuable goods from the market.
 
-When I first played the AI without this move type as a possible move at all, it beat me, so maybe it would be better without this implementation at all! :satisfied:
+When I first played the AI before I had implemented this move type, it beat me, so maybe it would be better without this implementation at all! :satisfied:
