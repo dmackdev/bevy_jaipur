@@ -147,6 +147,12 @@ pub fn exchange_goods_scorer_system(
                 CardType::Good(good_type) => Some((ent, good_type)),
                 _ => None,
             })
+            .filter(|(_, good_type)| {
+                goods_hand_counts_after_market_take
+                    .iter()
+                    .map(|(eligible_good, _)| eligible_good)
+                    .contains(&&good_type) // Must have a count entry for this market good to be eligible for exchange
+            })
             .collect::<Vec<_>>();
 
         let entities_to_exchange_from_hand = camels_in_hand
