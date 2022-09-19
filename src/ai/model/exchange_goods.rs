@@ -173,37 +173,34 @@ pub fn exchange_goods_scorer_system(
 
         let zipped_len = zipped.len();
 
-        if zipped_len < 2 {
-            println!("COULD NOT EXCHANGE CARDS",);
-            scorer_state.card_entities = None;
-            score.set(0.0);
-        } else {
-            println!("FOUND {} CARDS TO EXCHANGE", zipped_len);
-            let mut ents = vec![];
-            for (hand_ent, market_ent) in zipped {
-                ents.push(*hand_ent);
-                ents.push(*market_ent);
+        let highest_count_after_take_opt = goods_hand_counts_after_market_take
+            .iter()
+            .sorted_by_key(|(_, count)| *count)
+            .rev()
+            .next();
+
+        if let Some(highest_count_pair) = highest_count_after_take_opt {
+            if zipped_len > 1 {
+                println!("FOUND {} CARDS TO EXCHANGE", zipped_len);
+                let mut ents = vec![];
+                for (hand_ent, market_ent) in zipped {
+                    ents.push(*hand_ent);
+                    ents.push(*market_ent);
+                }
+                scorer_state.card_entities = Some(ents);
+
+                // TODO: I am adding one to make this a higher score than take single good for the corresponding number of goods in hand after
+                // This is because we are exchanging less "valuable" cards (camels and single goods in hand) for more "valuable" goods cards from the market
+                let score_value = clamp(((**highest_count_pair.1 + 1) * 2) as f32 / 10.0, 0.0, 1.0);
+                println!("SCORE: {}", score_value);
+
+                score.set(score_value);
+                return;
             }
-            scorer_state.card_entities = Some(ents);
-
-            let highest_count_after_take = goods_hand_counts_after_market_take
-                .iter()
-                .sorted_by_key(|(_, count)| *count)
-                .rev()
-                .next()
-                .unwrap()
-                .1;
-
-            // TODO: I am adding one to make this a higher score than take single good for the corresponding number of goods in hand after
-            // This is because we are exchanging less "valuable" cards (camels and single goods in hand) for more "valuable" goods cards from the market
-            let score_value = clamp(
-                ((**highest_count_after_take + 1) * 2) as f32 / 10.0,
-                0.0,
-                1.0,
-            );
-            println!("SCORE: {}", score_value);
-
-            score.set(score_value);
         }
+
+        println!("COULD NOT EXCHANGE CARDS",);
+        scorer_state.card_entities = None;
+        score.set(0.0);
     }
 }
