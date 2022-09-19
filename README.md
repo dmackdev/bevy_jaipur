@@ -60,4 +60,4 @@ As per the rules, the game ends after a turn when either: the game tokens for 3 
 
 The Bevy plugin [big-brain](https://github.com/zkat/big-brain) is used for the AI player. As a [Utility AI](https://en.wikipedia.org/wiki/Utility_system) implementation, it "scores" possible moves during its turn according to their perceived benefit, and "picks" the move based on the score, according to some defined criteria.
 
-See [here](src/ai/AI-README.md) for notes on my Jaipur AI implementation.
+See [here](src/ai/AI-README.md) for notes on my Jaipur AI implementation. Note that as per the rules - a player need not reveal the number of camels they have, so the AI player does not show you all of theirs.
