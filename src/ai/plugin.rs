@@ -34,7 +34,7 @@ pub fn init(mut commands: Commands) {
         .insert(ExchangeGoodsScorerState::default())
         .insert(
             Thinker::build()
-                .picker(HighestScorePicker { threshold: 0.1 })
+                .picker(HighestScorePicker { threshold: 0.0 })
                 .when(TakeSingleGoodScorer, TakeSingleGoodAction)
                 .when(SellGoodsScorer, SellGoodsAction)
                 .when(TakeAllCamelsScorer, TakeAllCamelsAction)
