@@ -27,8 +27,6 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "Jaipur".to_string(),
-            width: 800.,
-            height: 600.,
             resizable: true,
             ..default()
         })
