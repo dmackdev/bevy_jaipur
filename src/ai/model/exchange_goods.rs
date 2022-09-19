@@ -141,7 +141,7 @@ pub fn exchange_goods_scorer_system(
         // 2 Zip [...camel entities permitted to exchange, ...single goods in hand entities] with market entities from step 1
         // 3 If there are at least 2 tuples, then set the score above 0 proportionate to the new counts of goods in your hand after the exchange, else 0
 
-        let market_goods_with_ents = market_cards_query
+        let eligible_market_goods_with_ents = market_cards_query
             .iter()
             .filter_map(|(ent, card)| match card.0 {
                 CardType::Good(good_type) => Some((ent, good_type)),
@@ -155,20 +155,20 @@ pub fn exchange_goods_scorer_system(
             })
             .collect::<Vec<_>>();
 
-        let entities_to_exchange_from_hand = camels_in_hand
-            .iter()
-            .take(num_camels_permitted_to_exchange as usize)
-            .chain(eligible_single_goods_in_hand.iter());
-
-        let sorted_market_entities = market_goods_with_ents
+        let sorted_market_entities_to_exchange = eligible_market_goods_with_ents
             .iter()
             .sorted_by_key(|(_, g)| goods_hand_counts_after_market_take.get(&g).unwrap_or(&&0))
             .map(|(ent, _)| ent)
             .rev()
             .collect::<Vec<_>>();
 
+        let entities_to_exchange_from_hand = camels_in_hand
+            .iter()
+            .take(num_camels_permitted_to_exchange as usize)
+            .chain(eligible_single_goods_in_hand.iter());
+
         let zipped = entities_to_exchange_from_hand
-            .zip(sorted_market_entities)
+            .zip(sorted_market_entities_to_exchange)
             .collect::<Vec<_>>();
 
         let zipped_len = zipped.len();
