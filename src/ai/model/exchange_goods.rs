@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, collections::HashMap};
 
 use bevy::prelude::*;
 use big_brain::{prelude::ActionState, scorers::Score, thinker::Actor};
@@ -110,7 +110,12 @@ pub fn exchange_goods_scorer_system(
         for (good, count) in goods_hand_counts_after_market_take.iter_mut() {
             *count += goods_hand_counts.get(good).unwrap_or(&0);
         }
-        // TODO: filter out goods_hand_counts_after_market_take for which there is count of one, unless its a high value good
+
+        // Filter out goods_hand_counts_after_market_take for which there is count of one, unless its a high value good
+        let goods_hand_counts_after_market_take = goods_hand_counts_after_market_take
+            .iter()
+            .filter(|(good_type, count)| **count > 1 || good_type.is_high_value())
+            .collect::<HashMap<_, _>>();
 
         // Find goods in hand of which there are only one, that are not in the market
         // TODO: Filter out high value goods to not exchange them, unless there are no more tokens for it
@@ -151,7 +156,7 @@ pub fn exchange_goods_scorer_system(
 
         let sorted_market_entities = market_goods_with_ents
             .iter()
-            .sorted_by_key(|(_, g)| goods_hand_counts_after_market_take.get(g).unwrap_or(&0))
+            .sorted_by_key(|(_, g)| goods_hand_counts_after_market_take.get(&g).unwrap_or(&&0))
             .map(|(ent, _)| ent)
             .rev()
             .collect::<Vec<_>>();
@@ -184,8 +189,12 @@ pub fn exchange_goods_scorer_system(
                 .1;
 
             // TODO: I am adding one to make this a higher score than take single good for the corresponding number of goods in hand after
-            // This is because the exchange must happen on at least two different goods types, so we are in total taking more cards in of value
-            let score_value = clamp(((highest_count_after_take + 1) * 2) as f32 / 10.0, 0.0, 1.0);
+            // This is because we are exchanging less "valuable" cards (camels and single goods in hand) for more "valuable" goods cards from the market
+            let score_value = clamp(
+                ((**highest_count_after_take + 1) * 2) as f32 / 10.0,
+                0.0,
+                1.0,
+            );
             println!("SCORE: {}", score_value);
 
             score.set(score_value);
