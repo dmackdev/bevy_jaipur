@@ -14,10 +14,10 @@ cargo run
 
 ## Build the game for Web
 
-First ensure you have `wasm-bindgen-cli` at version 0.2.83 installed:
+First ensure you have `wasm-bindgen-cli` installed:
 
 ```bash
-cargo install wasm-bindgen-cli@0.2.83
+cargo install wasm-bindgen-cli
 ```
 
 Run the following script to build the Web distribution:
