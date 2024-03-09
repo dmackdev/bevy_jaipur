@@ -23,7 +23,7 @@ cargo install wasm-bindgen-cli
 Run the following script to build the Web distribution:
 
 ```bash
-./build-wasm.sh
+./build_wasm.sh
 ```
 
 This outputs the Web build artifacts to `dist`, which includes a zipped folder `dist.zip`. The game can be served locally at http://localhost:3000 via:
